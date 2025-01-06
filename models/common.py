@@ -6,6 +6,7 @@ import numpy as np
 import requests
 import torch
 import torch.nn as nn
+import warnings
 from PIL import Image, ImageDraw
 
 from utils.datasets import letterbox
