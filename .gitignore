@@ -2,3 +2,5 @@
 *.png
 *.jpg
 *.pt
+/runs
+*.pyc
