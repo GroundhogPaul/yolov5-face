@@ -35,6 +35,7 @@ def scale_coords_landmarks(img1_shape, coords, img0_shape, ratio_pad=None):
     # Rescale coords (xyxy) from img1_shape to img0_shape
     if ratio_pad is None:  # calculate from img0_shape
         gain = min(img1_shape[0] / img0_shape[0], img1_shape[1] / img0_shape[1])  # gain  = old / new
+        # wh pad is half on both side, correspond to datasets.py::letterbox()
         pad = (img1_shape[1] - img0_shape[1] * gain) / 2, (img1_shape[0] - img0_shape[0] * gain) / 2  # wh padding
     else:
         gain = ratio_pad[0][0]
@@ -203,10 +204,6 @@ def detect(
                         vid_writer[i].write(im0)
                     except Exception as e:
                         print(e)
-
-                    
-            
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
