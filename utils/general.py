@@ -378,26 +378,31 @@ def jaccard_diou(box_a, box_b, iscrowd:bool=False):
 
 def non_max_suppression_face(prediction, conf_thres=0.25, iou_thres=0.45, classes=None, agnostic=False, labels=()):
     """Performs Non-Maximum Suppression (NMS) on inference results
+    Inputs:
+        prediction: [BBoxCenterX(0), BBoxCenterY(1), wBBox(2), hBBox(3), conf(4), \
+                        LMx1(5), LMy1(6), LMx2(7), LMy2(8), LMx3(9), LMy3(10), LMx4(11), LMy4(12), LMx5(13), LMy5(14), 
+                        class(15~...)]
+        classes: select certain classes instead of all
+        agnostic: True: NMS among boxes of all class; False: different class, different NMS 
     Returns:
-         detections with shape: nx6 (x1, y1, x2, y2, conf, cls)
+        detections with shape: nx6 (x1, y1, x2, y2, conf, cls)
     """
-
     nc = prediction.shape[2] - 15  # number of classes
     xc = prediction[..., 4] > conf_thres  # candidates
 
     # Settings
-    min_wh, max_wh = 2, 4096  # (pixels) minimum and maximum box width and height
+    min_wh, max_wh = 2, 4096  # (pixels) minimum and maximum box width and height, to offset the bbox of different class, so they won't NMS each other
     time_limit = 10.0  # seconds to quit after
-    redundant = True  # require redundant detections
+    redundant = True  # require redundant detections, selected bbox must have at least 1 other box IoU > threshold
     multi_label = nc > 1  # multiple labels per box (adds 0.5ms/img)
     merge = False  # use merge-NMS
 
     t = time.time()
-    output = [torch.zeros((0, 16), device=prediction.device)] * prediction.shape[0]
+    output = [torch.zeros((0, 16), device=prediction.device)] * prediction.shape[0] # shape[0]: image number
     for xi, x in enumerate(prediction):  # image index, image inference
         # Apply constraints
         # x[((x[..., 2:4] < min_wh) | (x[..., 2:4] > max_wh)).any(1), 4] = 0  # width-height
-        x = x[xc[xi]]  # confidence
+        x = x[xc[xi]]  # take out the lines of x with confidence > conf_thres
 
         # Cat apriori labels if autolabelling
         if labels and len(labels[xi]):
@@ -423,7 +428,7 @@ def non_max_suppression_face(prediction, conf_thres=0.25, iou_thres=0.45, classe
             i, j = (x[:, 15:] > conf_thres).nonzero(as_tuple=False).T
             x = torch.cat((box[i], x[i, j + 15, None], x[i, 5:15] ,j[:, None].float()), 1)
         else:  # best class only
-            conf, j = x[:, 15:].max(1, keepdim=True)
+            conf, j = x[:, 15:].max(1, keepdim=True) # j the index of winner class
             x = torch.cat((box, conf, x[:, 5:15], j.float()), 1)[conf.view(-1) > conf_thres]
 
         # Filter by class
