@@ -396,7 +396,7 @@ def non_max_suppression_face(prediction, conf_thres=0.25, iou_thres=0.45, classe
     time_limit = 10.0  # seconds to quit after
     redundant = True  # require redundant detections, selected bbox must have at least 1 other box IoU > threshold
     multi_label = nc > 1  # multiple labels per box (adds 0.5ms/img)
-    merge = False  # use merge-NMS
+    merge = False  # use merge-NMS using weighted mean to alleviate shake of BBox
 
     t = time.time()
     output = [torch.zeros((0, 16), device=prediction.device)] * prediction.shape[0] # shape[0]: image number
@@ -429,7 +429,7 @@ def non_max_suppression_face(prediction, conf_thres=0.25, iou_thres=0.45, classe
             i, j = (x[:, 15:] > conf_thres).nonzero(as_tuple=False).T
             x = torch.cat((box[i], x[i, j + 15, None], x[i, 5:15] ,j[:, None].float()), 1)
         else:  # best class only
-            conf, j = x[:, 15:].max(1, keepdim=True) # j the index of winner class
+            conf, j = x[:, 15:].max(1, keepdim=True) # j: the index of winner class
             x = torch.cat((box, conf, x[:, 5:15], j.float()), 1)[conf.view(-1) > conf_thres]
 
         # Filter by class

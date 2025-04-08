@@ -115,7 +115,9 @@ def attempt_load(weights, map_location=None):
     model = Ensemble()
     for w in weights if isinstance(weights, list) else [weights]:
         attempt_download(w)
+        # the loaded model is dict wrapped, take out the 'model', which is 'models.yolo.Model'
         model.append(torch.load(w, map_location=map_location)['model'].float().fuse().eval())  # load FP32 model
+    print(type(model))
 
     # Compatibility updates
     for m in model.modules():
@@ -125,6 +127,7 @@ def attempt_load(weights, map_location=None):
             m._non_persistent_buffers_set = set()  # pytorch 1.6.0 compatibility
 
     if len(model) == 1:
+        model_last = model[-1]
         return model[-1]  # return model
     else:
         print('Ensemble created with %s\n' % weights)
