@@ -181,9 +181,10 @@ class Model(nn.Module):
             return self.forward_once(x, profile)  # single-scale inference, train
 
     def forward_once(self, x, profile=False):
-        y, dt = [], []  # outputs
+        y = [] # key layer output (for concatenation)
+        dt = [] # spent time
         for m in self.model:
-            if m.f != -1:  # if not from previous layer
+            if m.f != -1:  # if not from previous layer, this value is read from .yaml
                 x = y[m.f] if isinstance(m.f, int) else [x if j == -1 else y[j] for j in m.f]  # from earlier layers
 
             if profile:
@@ -231,7 +232,7 @@ class Model(nn.Module):
                 m.forward = m.fuseforward  # update forward
             elif type(m) is nn.Upsample:
                 m.recompute_scale_factor = None  # torch 1.11.0 compatibility
-        self.info()
+        self.info() # print model information under default image size 640
         return self
 
     def nms(self, mode=True):  # add or remove NMS module

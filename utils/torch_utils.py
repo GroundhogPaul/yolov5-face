@@ -46,6 +46,7 @@ def init_torch_seeds(seed=0):
 def git_describe():
     # return human-readable git description, i.e. v5.0-5-g3e25f1e https://git-scm.com/docs/git-describe
     if Path('.git').exists():
+        # [-1]: only return the tag, ignore the others
         return subprocess.check_output('git describe --tags --long --always', shell=True).decode('utf-8')[:-1]
     else:
         return ''
@@ -193,6 +194,8 @@ def fuse_conv_and_bn(conv, bn):
 
 
 def model_info(model, verbose=False, img_size=640):
+    # ---------- returns two things, 1. number of parameters ; 2. number of operation (FLOPS) ----------
+    # ----- 1. number of parameters ----- 
     # Model information. img_size may be int or list, i.e. img_size=640 or img_size=[640, 320]
     n_p = sum(x.numel() for x in model.parameters())  # number parameters
     n_g = sum(x.numel() for x in model.parameters() if x.requires_grad)  # number gradients
@@ -203,6 +206,8 @@ def model_info(model, verbose=False, img_size=640):
             print('%5g %40s %9s %12g %20s %10.3g %10.3g' %
                   (i, name, p.requires_grad, p.numel(), list(p.shape), p.mean(), p.std()))
 
+    # ----- 2. number of operation (FLOPS) ----- 
+    # calculate using thop.profile on image size 'model.stride', and convert to image size 'img_size'
     try:  # FLOPS
         from thop import profile
         stride = int(model.stride.max()) if hasattr(model, 'stride') else 32

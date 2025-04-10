@@ -4,13 +4,22 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-        
         {
-            "name": "Python Debugger: Current File",
-            "type": "debugpy",
+            "name": "Python: Debug File detect_face.py",
+            "type": "python",
             "request": "launch",
-            "program": "${file}",
+            "program": "${workspaceFolder}/detect_face.py",
             "console": "integratedTerminal",
+            "args": ["--weights", "./weights/Pretrained/yolov5s-face.pt", "--source", "./runs/AD_640_480.bmp", "--save-img"],
+            "justMyCode": false
+        },
+        {
+            "name": "Python: Debug File test.py",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/test.py",
+            "console": "integratedTerminal",
+            "args": ["--workers", "0"],
             "justMyCode": false
         }
     ]
