@@ -235,6 +235,8 @@ def xywhn2xyxy(x, w=640, h=640, padw=32, padh=32):
 
 def scale_coords(img1_shape, coords, img0_shape, ratio_pad=None):
     # Rescale coords (xyxy) from img1_shape to img0_shape
+    # img1 is the image after letter box
+    # img0 is the origin image
     if ratio_pad is None:  # calculate from img0_shape
         gain = min(img1_shape[0] / img0_shape[0], img1_shape[1] / img0_shape[1])  # gain  = old / new
         # wh pad is half on both side, correspond to datasets.py::letterbox()
@@ -385,6 +387,7 @@ def non_max_suppression_face(prediction, conf_thres=0.25, iou_thres=0.45, classe
                         class(15~...)]
         classes: select certain classes instead of all
         agnostic: True: NMS among boxes of all class; False: different class, different NMS 
+        label: 1. add new detected box if it's missing in Label; 2. merge (now is always false) labelled box with detected box using conf
     Returns:
         detections with shape: nx6 (x1, y1, x2, y2, conf, cls)
     """
@@ -396,7 +399,7 @@ def non_max_suppression_face(prediction, conf_thres=0.25, iou_thres=0.45, classe
     time_limit = 10.0  # seconds to quit after
     redundant = True  # require redundant detections, selected bbox must have at least 1 other box IoU > threshold
     multi_label = nc > 1  # multiple labels per box (adds 0.5ms/img)
-    merge = False  # use merge-NMS using weighted mean to alleviate shake of BBox
+    merge = False  # use merge-NMS using weighted mean to alleviate shake of BBox (if set true, could support hybrid label)
 
     t = time.time()
     output = [torch.zeros((0, 16), device=prediction.device)] * prediction.shape[0] # shape[0]: image number
