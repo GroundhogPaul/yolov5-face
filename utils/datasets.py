@@ -411,6 +411,8 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
             ar = ar[irect]
 
             # Set training image shapes
+            # by maintaining the aspect ratio between [1, 0.xx] and [0.xx, 1] for each batch
+            # then multiplied by ( img_size padded by stride )
             shapes = [[1, 1]] * nb
             for i in range(nb):
                 ari = ar[bi == i]
