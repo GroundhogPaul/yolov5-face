@@ -21,6 +21,15 @@
             "console": "integratedTerminal",
             "args": ["--workers", "0"],
             "justMyCode": false
+        },
+        {
+            "name": "Python: Debug File export.py",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/export.py",
+            "console": "integratedTerminal",
+            "args": ["--weights", "./weights/Pretrained/yolov5s-face.pt"],
+            "justMyCode": false
         }
     ]
 }
