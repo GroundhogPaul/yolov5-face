@@ -10,7 +10,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/detect_face.py",
             "console": "integratedTerminal",
-            "args": ["--weights", "./weights/Pretrained/yolov5s-face.pt", "--source", "./runs/AD_640_480.bmp", "--save-img"],
+            "args": ["--weights", "./weights/Pretrained/yolov5n-0.5.pt", "--source", "./runs/AD_640_480.bmp", "--save-img"],
             "justMyCode": false
         },
         {
@@ -28,7 +28,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/export.py",
             "console": "integratedTerminal",
-            "args": ["--weights", "./weights/Pretrained/yolov5s-face.pt"],
+            "args": ["--weights", "./weights/Pretrained/yolov5n-0.5.pt"],
             "justMyCode": false
         }
     ]
