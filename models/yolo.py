@@ -29,6 +29,7 @@ class Detect(nn.Module):
     export_cat = False  # onnx export cat output
 
     def __init__(self, nc=80, anchors=(), ch=()):  # detection layer
+        # ch=() : the channel of the input of three resolution
         super(Detect, self).__init__()
         self.nc = nc  # number of classes
         #self.no = nc + 5  # number of outputs per anchor
@@ -90,7 +91,7 @@ class Detect(nn.Module):
                 #y = x[i].sigmoid()
 
                 y[..., 0:2] = (y[..., 0:2] * 2. - 0.5 + self.grid[i].to(x[i].device)) * self.stride[i]  # xy
-                y[..., 2:4] = (y[..., 2:4] * 2) ** 2 * self.anchor_grid[i]  # wh
+                y[..., 2:4] = (y[..., 2:4] * 2) ** 2 * self.anchor_grid[i]  # wh # the square is to avoid negative number
 
                 #y[..., 5:15] = y[..., 5:15] * 8 - 4
                 y[..., 5:7]   = y[..., 5:7] *   self.anchor_grid[i] + self.grid[i].to(x[i].device) * self.stride[i] # landmark x1 y1
@@ -184,6 +185,7 @@ class Model(nn.Module):
         y = [] # key layer output (for concatenation)
         dt = [] # spent time
         for m in self.model:
+            # print(m.i, type(m)) # for code study
             if m.f != -1:  # if not from previous layer, this value is read from .yaml
                 x = y[m.f] if isinstance(m.f, int) else [x if j == -1 else y[j] for j in m.f]  # from earlier layers
 
