@@ -41,20 +41,30 @@ def scale_coords_landmarks(img1_shape, coords, img0_shape, ratio_pad=None):
         gain = ratio_pad[0][0]
         pad = ratio_pad[1]
 
-    coords[:, [0, 2, 4, 6, 8]] -= pad[0]  # x padding
-    coords[:, [1, 3, 5, 7, 9]] -= pad[1]  # y padding
-    coords[:, :10] /= gain
+    assert coords.shape[-1] % 2 == 0, f"coords.shape[-1] should be even, because it's pairs of x,y, current = {coords.shape[-1]}."
+
+    lenLandMarkXY = coords.shape[-1]
+    lstEven = [i for i in range(0, lenLandMarkXY, 2)] # indices of x
+    lstOdd = [i for i in range(1, lenLandMarkXY, 2)] # indices of y
+    
+    coords[:, lstEven] -= pad[0]  # x padding
+    coords[:, lstOdd] -= pad[1]  # y padding
+    coords[:, :lenLandMarkXY] /= gain
     #clip_coords(coords, img0_shape)
-    coords[:, 0].clamp_(0, img0_shape[1])  # x1
-    coords[:, 1].clamp_(0, img0_shape[0])  # y1
-    coords[:, 2].clamp_(0, img0_shape[1])  # x2
-    coords[:, 3].clamp_(0, img0_shape[0])  # y2
-    coords[:, 4].clamp_(0, img0_shape[1])  # x3
-    coords[:, 5].clamp_(0, img0_shape[0])  # y3
-    coords[:, 6].clamp_(0, img0_shape[1])  # x4
-    coords[:, 7].clamp_(0, img0_shape[0])  # y4
-    coords[:, 8].clamp_(0, img0_shape[1])  # x5
-    coords[:, 9].clamp_(0, img0_shape[0])  # y5
+    for i in lstEven:
+        coords[:, i].clamp_(0, img0_shape[1])  # x1
+        coords[:, i+1].clamp_(0, img0_shape[0])  # y1
+
+    # coords[:, 0].clamp_(0, img0_shape[1])  # x1
+    # coords[:, 1].clamp_(0, img0_shape[0])  # y1
+    # coords[:, 2].clamp_(0, img0_shape[1])  # x2
+    # coords[:, 3].clamp_(0, img0_shape[0])  # y2
+    # coords[:, 4].clamp_(0, img0_shape[1])  # x3
+    # coords[:, 5].clamp_(0, img0_shape[0])  # y3
+    # coords[:, 6].clamp_(0, img0_shape[1])  # x4
+    # coords[:, 7].clamp_(0, img0_shape[0])  # y4
+    # coords[:, 8].clamp_(0, img0_shape[1])  # x5
+    # coords[:, 9].clamp_(0, img0_shape[0])  # y5
     return coords
 
 def show_results(img, xyxy, conf, landmarks, class_num):
@@ -186,6 +196,7 @@ def detect(
             # Save results (image with detections)
             if save_img:
                 if dataset.mode == 'image':
+                    save_path = "./detect_face_out.jpg"
                     cv2.imwrite(save_path, im0)
                 else:  # 'video' or 'stream'
                     if vid_path[i] != save_path:  # new video
