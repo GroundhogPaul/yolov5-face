@@ -125,6 +125,7 @@ class LoadFaceImagesAndLabels(Dataset):  # for training/testing
         self.mosaic_border = [-img_size // 2, -img_size // 2]
         self.stride = stride
 
+# ---------------------------- TODO: take this code block (cache) out: begin ------------------------------ #
         try:
             f = []  # image files
             for p in path if isinstance(path, list) else [path]:
@@ -146,21 +147,27 @@ class LoadFaceImagesAndLabels(Dataset):  # for training/testing
         # Check cache
         self.label_files = img2label_paths(self.img_files)  # labels
         cache_path = Path(self.label_files[0]).parent.with_suffix('.cache')  # cached labels
-        if cache_path.is_file():
+        nLM = 106 # TODO magic number
+        # nLM = 5
+        # CacheColNum = 15 # dataset coco: 0:objectiveness; 1~4 bbox(x,y,w,h); 5~14: landmark(x,y)*5; 15: class
+        CacheColNum = 1 + 4 + nLM*2 + 1 # dataset Lapa: 0:obj; 1~4 bbox(x,y,w,h); 5~216: landmark(x,y)*106; 217 class = 0
+        if cache_path.is_file(): # if cache path exits, loaed
             cache = torch.load(cache_path)  # load
             if cache['hash'] != get_hash(self.label_files + self.img_files) or 'results' not in cache:  # changed
-                cache = self.cache_labels(cache_path)  # re-cache
-        else:
-            cache = self.cache_labels(cache_path)  # cache
+                cache = self.cache_labels(cache_path, CacheColNum)  # re-cache
+        else: # else create
+            cache = self.cache_labels(cache_path, CacheColNum)  # cache
 
         # Display cache
         [nf, nm, ne, nc, n] = cache.pop('results')  # found, missing, empty, corrupted, total
         desc = f"Scanning '{cache_path}' for images and labels... {nf} found, {nm} missing, {ne} empty, {nc} corrupted"
         tqdm(None, desc=desc, total=n, initial=n)
         assert nf > 0 or not augment, f'No labels found in {cache_path}. Can not train without labels. See {help_url}'
+# ---------------------------- TODO: take this code block (cache) out: end ------------------------------ #
 
         # Read cache
         cache.pop('hash')  # remove hash
+        # TODO add check len(cache) = 2
         labels, shapes = zip(*cache.values())
         self.labels = list(labels)
         self.shapes = np.array(shapes, dtype=np.float64)
@@ -213,7 +220,7 @@ class LoadFaceImagesAndLabels(Dataset):  # for training/testing
                 gb += self.imgs[i].nbytes
                 pbar.desc = 'Caching images (%.1fGB)' % (gb / 1E9)
 
-    def cache_labels(self, path=Path('./labels.cache')):
+    def cache_labels(self, path=Path('./labels.cache'), CacheColNum = 15):
         # Cache dataset labels, check images and read shapes
         x = {}  # dict
         nm, nf, ne, nc = 0, 0, 0, 0  # number missing, found, empty, duplicate
@@ -232,16 +239,16 @@ class LoadFaceImagesAndLabels(Dataset):  # for training/testing
                     with open(lb_file, 'r') as f:
                         l = np.array([x.split() for x in f.read().strip().splitlines()], dtype=np.float32)  # labels
                     if len(l):
-                        assert l.shape[1] == 15, 'labels require 15 columns each'
+                        assert l.shape[1] == CacheColNum, f'labels require {CacheColNum} columns each'
                         assert (l >= -1).all(), 'negative labels'
                         assert (l[:, 1:] <= 1).all(), 'non-normalized or out of bounds coordinate labels'
                         assert np.unique(l, axis=0).shape[0] == l.shape[0], 'duplicate labels'
                     else:
                         ne += 1  # label empty
-                        l = np.zeros((0, 15), dtype=np.float32)
+                        l = np.zeros((0, CacheColNum), dtype=np.float32)
                 else:
                     nm += 1  # label missing
-                    l = np.zeros((0, 15), dtype=np.float32)
+                    l = np.zeros((0, CacheColNum), dtype=np.float32)
                 x[im_file] = [l, shape]
             except Exception as e:
                 nc += 1
@@ -327,6 +334,7 @@ class LoadFaceImagesAndLabels(Dataset):  # for training/testing
                 labels[:, 14] = np.array(x[:, 14] > 0, dtype=np.int32) * (ratio[1] * h * x[:, 14] + pad[1]) + (
                     np.array(x[:, 14] > 0, dtype=np.int32) - 1)
 
+        self.augment = False
         if self.augment:
             # Augment imagespace
             if not mosaic:
@@ -388,7 +396,9 @@ class LoadFaceImagesAndLabels(Dataset):  # for training/testing
                     labels[:, [11, 12]] = labels[:, [13, 14]]
                     labels[:, [13, 14]] = mouth_left
 
-        labels_out = torch.zeros((nL, 16))
+        nLM = 106 # TODO magic number
+        labels_out = torch.zeros((nL, 1 + 1 + 4 + nLM*2 + 1))  ## TODO: Lapa8 magic number
+        # the first element is for @staticmethod collate_fn to add image idx
         if nL:
             labels_out[:, 1:] = torch.from_numpy(labels)
             #showlabels(img, labels[:, 1:5], labels[:, 5:15])
@@ -405,7 +415,7 @@ class LoadFaceImagesAndLabels(Dataset):  # for training/testing
     def collate_fn(batch):
         img, label, path, shapes = zip(*batch)  # transposed
         for i, l in enumerate(label):
-            l[:, 0] = i  # add target image index for build_targets()
+            l[:, 0] = i  # add target image index for build_targets(), so in the next line, the 'cat' won't lose the label's image index
         return torch.stack(img, 0), torch.cat(label, 0), path, shapes
 
 

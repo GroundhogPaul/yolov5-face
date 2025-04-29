@@ -10,7 +10,8 @@
             "request": "launch",
             "program": "${workspaceFolder}/detect_face.py",
             "console": "integratedTerminal",
-            "args": ["--weights", "./weights/Pretrained/yolov5n-0.5.pt", "--source", "./runs/AD_640_480.bmp", "--save-img"],
+            "args": ["--weights", "./weights/Pretrained/yolov5n-0.5.pt", 
+                "--source", "./runs/AD_640_480.bmp", "--save-img"],
             "justMyCode": false
         },
         {
@@ -20,6 +21,21 @@
             "program": "${workspaceFolder}/test.py",
             "console": "integratedTerminal",
             "args": ["--workers", "0"],
+            "justMyCode": false
+        },
+        {
+            "name": "Python: Debug File train.py",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/train.py",
+            "console": "integratedTerminal",
+            "args": ["--workers", "0", 
+                "--weights", "weights/pretrained/yolov5n-0.5.nopt", 
+                "--cfg", "models/yolov5n-0.5.yaml",
+                "--data", "data/Lapa/lapa8-pose.yaml", 
+                // "--data", "data/coco.yaml", 
+                "--project", "runs/train/Lapa", 
+                "--name", "Lapa"],
             "justMyCode": false
         },
         {
