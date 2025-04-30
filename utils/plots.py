@@ -71,7 +71,6 @@ def plot_one_landmark(lm, img, color=None, radius=2):
     assert len(lm) % 2 == 0, f"number of coordinates of landmark should be even, current {len(lm)}"
     nLM = int(len(lm) / 2)
     # Plots landmarks for an object on image img
-    print(lm)
     # tl = line_thickness or round(0.002 * (img.shape[0] + img.shape[1]) / 2) + 1  # line/font thickness
     color = color or [random.randint(0, 255) for _ in range(3)]
     for i in range(nLM):
@@ -150,7 +149,6 @@ def plot_images(images, targets, paths=None, fname='images.jpg', names=None, max
         mosaic[block_y:block_y + h, block_x:block_x + w, :] = img
         if len(targets) > 0:
             image_targets = targets[targets[:, 0] == i]
-            print(image_targets)
             classes = image_targets[:, 1].astype('int')
             labels = image_targets.shape[1] < (idxConf + 1)  # labels has no "confidence" column
             conf = None if labels else image_targets[:, idxConf]  # check for confidence presence (label vs pred)
@@ -191,7 +189,6 @@ def plot_images(images, targets, paths=None, fname='images.jpg', names=None, max
             for iLM in range(0, nLM):
                 LMs[[2*iLM]] += block_x
                 LMs[[2*iLM+1]] += block_y
-            print(LMs)
             for j, LM in enumerate(LMs.T):
                 cls = int(classes[j])
                 # color = colors[cls % len(colors)]
@@ -199,8 +196,6 @@ def plot_images(images, targets, paths=None, fname='images.jpg', names=None, max
                 if labels or conf[j] > 0.25:  # 0.25 conf thresh
                     label = '%s' % cls if labels else '%s %.1f' % (cls, conf[j])
                     plot_one_landmark(LM, mosaic, color=None, radius = tl - 1)
-
-
 
         # Draw image filename labels
         if paths:
