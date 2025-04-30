@@ -35,7 +35,8 @@
                 "--data", "data/Lapa/lapa8-pose.yaml", 
                 // "--data", "data/coco.yaml", 
                 "--project", "runs/train/Lapa", 
-                "--name", "Lapa"],
+                "--name", "Lapa",
+                "--epochs", "1"],
             "justMyCode": false
         },
         {

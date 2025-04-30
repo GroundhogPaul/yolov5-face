@@ -54,11 +54,11 @@ def butter_lowpass_filtfilt(data, cutoff=1500, fs=50000, order=5):
     return filtfilt(b, a, data)  # forward-backward filter
 
 
-def plot_one_box(x, img, color=None, label=None, line_thickness=None):
+def plot_one_box(box, img, color=None, label=None, line_thickness=None):
     # Plots one bounding box on image img
     tl = line_thickness or round(0.002 * (img.shape[0] + img.shape[1]) / 2) + 1  # line/font thickness
     color = color or [random.randint(0, 255) for _ in range(3)]
-    c1, c2 = (int(x[0]), int(x[1])), (int(x[2]), int(x[3]))
+    c1, c2 = (int(box[0]), int(box[1])), (int(box[2]), int(box[3]))
     cv2.rectangle(img, c1, c2, color, thickness=tl, lineType=cv2.LINE_AA)
     if label:
         tf = max(tl - 1, 1)  # font thickness
@@ -67,6 +67,17 @@ def plot_one_box(x, img, color=None, label=None, line_thickness=None):
         cv2.rectangle(img, c1, c2, color, -1, cv2.LINE_AA)  # filled
         cv2.putText(img, label, (c1[0], c1[1] - 2), 0, tl / 3, [225, 255, 255], thickness=tf, lineType=cv2.LINE_AA)
 
+def plot_one_landmark(lm, img, color=None, radius=2):
+    assert len(lm) % 2 == 0, f"number of coordinates of landmark should be even, current {len(lm)}"
+    nLM = int(len(lm) / 2)
+    # Plots landmarks for an object on image img
+    print(lm)
+    # tl = line_thickness or round(0.002 * (img.shape[0] + img.shape[1]) / 2) + 1  # line/font thickness
+    color = color or [random.randint(0, 255) for _ in range(3)]
+    for i in range(nLM):
+        x, y = int(lm[2*i]), int(lm[2*i + 1])
+        cv2.circle(img, (x,y), radius, color, -1)
+    pass
 
 def plot_wh_methods():  # from utils.plots import *; plot_wh_methods()
     # Compares the two methods for width-height anchor multiplication
@@ -97,9 +108,11 @@ def output_to_target(output):
     return np.array(targets)
 
 
-def plot_images(images, targets, paths=None, fname='images.jpg', names=None, max_size=640, max_subplots=16):
-    # Plot image grid with labels
+def plot_images(images, targets, paths=None, fname='images.jpg', names=None, max_size=640, max_subplots=16, nLM=5):
+    ##### nLM: number of LandMarks
+    idxConf = 1 + 1 + 4 + nLM*2 # 0: imgIdx; 1: class; 2~5: bbox; 6~217: nLM*2;  ## magic number
 
+    # Plot image grid with labels
     if isinstance(images, torch.Tensor):
         images = images.cpu().float().numpy()
     if isinstance(targets, torch.Tensor):
@@ -137,17 +150,22 @@ def plot_images(images, targets, paths=None, fname='images.jpg', names=None, max
         mosaic[block_y:block_y + h, block_x:block_x + w, :] = img
         if len(targets) > 0:
             image_targets = targets[targets[:, 0] == i]
-            boxes = xywh2xyxy(image_targets[:, 2:6]).T
+            print(image_targets)
             classes = image_targets[:, 1].astype('int')
-            labels = image_targets.shape[1] == 6  # labels if no conf column
-            conf = None if labels else image_targets[:, 6]  # check for confidence presence (label vs pred)
+            labels = image_targets.shape[1] < (idxConf + 1)  # labels has no "confidence" column
+            conf = None if labels else image_targets[:, idxConf]  # check for confidence presence (label vs pred)
 
+            # ----- plot bbox ----- #
+            boxes = xywh2xyxy(image_targets[:, 2:6]).T
             if boxes.shape[1]:
                 if boxes.max() <= 1.01:  # if normalized with tolerance 0.01
                     boxes[[0, 2]] *= w  # scale to pixels
                     boxes[[1, 3]] *= h
                 elif scale_factor < 1:  # absolute coords need scale if image scales
                     boxes *= scale_factor
+                else:
+                    print("!!!!! invalid boxes = ", boxes)
+                    assert False
             boxes[[0, 2]] += block_x
             boxes[[1, 3]] += block_y
             for j, box in enumerate(boxes.T):
@@ -157,6 +175,32 @@ def plot_images(images, targets, paths=None, fname='images.jpg', names=None, max
                 if labels or conf[j] > 0.25:  # 0.25 conf thresh
                     label = '%s' % cls if labels else '%s %.1f' % (cls, conf[j])
                     plot_one_box(box, mosaic, label=label, color=None, line_thickness=tl)
+
+            # ----- plot landmark ----- #
+            LMs = (image_targets[:, 6:6+2*nLM]).T
+            if LMs.shape[1]:
+                if LMs.max() <= 1.01:  # if normalized with tolerance 0.01
+                    for iLM in range(0, nLM):
+                        LMs[[2*iLM]] *= w  # scale to pixels
+                        LMs[[2*iLM+1]] *= h
+                elif scale_factor < 1:  # absolute coords need scale if image scales
+                    LMs *= scale_factor
+                else:
+                    print("!!!!! invalid LMs = ", LMs)
+                    assert False
+            for iLM in range(0, nLM):
+                LMs[[2*iLM]] += block_x
+                LMs[[2*iLM+1]] += block_y
+            print(LMs)
+            for j, LM in enumerate(LMs.T):
+                cls = int(classes[j])
+                # color = colors[cls % len(colors)]
+                cls = names[cls] if names else cls
+                if labels or conf[j] > 0.25:  # 0.25 conf thresh
+                    label = '%s' % cls if labels else '%s %.1f' % (cls, conf[j])
+                    plot_one_landmark(LM, mosaic, color=None, radius = tl - 1)
+
+
 
         # Draw image filename labels
         if paths:
