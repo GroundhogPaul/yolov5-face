@@ -276,6 +276,7 @@ class LoadFaceImagesAndLabels(Dataset):  # for training/testing
     #     return self
 
     def __getitem__(self, index):
+        nLM = 106 # TODO magic number
         index = self.indices[index]  # linear, shuffled, or image_weights
 
         hyp = self.hyp
@@ -293,10 +294,10 @@ class LoadFaceImagesAndLabels(Dataset):  # for training/testing
                 labels = np.concatenate((labels, labels2), 0)
 
         else:
-            # Load image
-            img, (h0, w0), (h, w) = load_image(self, index)
+            # Load image: "reshape" is in the load_image()
+            img, (h0, w0), (h, w) = load_image(self, index)  # 
 
-            # Letterbox
+            # Letterbox: (only do the "padding") 
             shape = self.batch_shapes[self.batch[index]] if self.rect else self.img_size  # final letterboxed shape
             img, ratio, pad = letterbox(img, shape, auto=False, scaleup=self.augment)
             shapes = (h0, w0), ((h / h0, w / w0), pad)  # for COCO mAP rescaling
@@ -305,6 +306,7 @@ class LoadFaceImagesAndLabels(Dataset):  # for training/testing
             labels = []
             x = self.labels[index]
             if x.size > 0:
+                ##### TODO not all LM is normalized / denormalized
                 # Normalized xywh to pixel xyxy format
                 labels = x.copy()
                 labels[:, 1] = ratio[0] * w * (x[:, 1] - x[:, 3] / 2) + pad[0]  # pad width
@@ -313,29 +315,36 @@ class LoadFaceImagesAndLabels(Dataset):  # for training/testing
                 labels[:, 4] = ratio[1] * h * (x[:, 2] + x[:, 4] / 2) + pad[1]
 
                 #labels[:, 5] = ratio[0] * w * x[:, 5] + pad[0]  # pad width
-                labels[:, 5] = np.array(x[:, 5] > 0, dtype=np.int32) * (ratio[0] * w * x[:, 5] + pad[0]) + (
-                    np.array(x[:, 5] > 0, dtype=np.int32) - 1)
-                labels[:, 6] = np.array(x[:, 6] > 0, dtype=np.int32) * (ratio[1] * h * x[:, 6] + pad[1]) + (
-                    np.array(x[:, 6] > 0, dtype=np.int32) - 1)
-                labels[:, 7] = np.array(x[:, 7] > 0, dtype=np.int32) * (ratio[0] * w * x[:, 7] + pad[0]) + (
-                    np.array(x[:, 7] > 0, dtype=np.int32) - 1)
-                labels[:, 8] = np.array(x[:, 8] > 0, dtype=np.int32) * (ratio[1] * h * x[:, 8] + pad[1]) + (
-                    np.array(x[:, 8] > 0, dtype=np.int32) - 1)
-                labels[:, 9] = np.array(x[:, 5] > 0, dtype=np.int32) * (ratio[0] * w * x[:, 9] + pad[0]) + (
-                    np.array(x[:, 9] > 0, dtype=np.int32) - 1)
-                labels[:, 10] = np.array(x[:, 5] > 0, dtype=np.int32) * (ratio[1] * h * x[:, 10] + pad[1]) + (
-                    np.array(x[:, 10] > 0, dtype=np.int32) - 1)
-                labels[:, 11] = np.array(x[:, 11] > 0, dtype=np.int32) * (ratio[0] * w * x[:, 11] + pad[0]) + (
-                    np.array(x[:, 11] > 0, dtype=np.int32) - 1)
-                labels[:, 12] = np.array(x[:, 12] > 0, dtype=np.int32) * (ratio[1] * h * x[:, 12] + pad[1]) + (
-                    np.array(x[:, 12] > 0, dtype=np.int32) - 1)
-                labels[:, 13] = np.array(x[:, 13] > 0, dtype=np.int32) * (ratio[0] * w * x[:, 13] + pad[0]) + (
-                    np.array(x[:, 13] > 0, dtype=np.int32) - 1)
-                labels[:, 14] = np.array(x[:, 14] > 0, dtype=np.int32) * (ratio[1] * h * x[:, 14] + pad[1]) + (
-                    np.array(x[:, 14] > 0, dtype=np.int32) - 1)
+                for iLM in range(nLM):
+                    labels[:, 5+2*iLM] = np.array(x[:, 5+2*iLM] > 0, dtype=np.int32) * (ratio[0] * w * x[:, 5+2*iLM] + pad[0]) + (
+                        np.array(x[:, 5+2*iLM] > 0, dtype=np.int32) - 1)
+                    labels[:, 6+2*iLM] = np.array(x[:, 6+2*iLM] > 0, dtype=np.int32) * (ratio[1] * h * x[:, 6+2*iLM] + pad[1]) + (
+                        np.array(x[:, 6+2*iLM] > 0, dtype=np.int32) - 1)
 
-        self.augment = False
+                # labels[:, 5] = np.array(x[:, 5] > 0, dtype=np.int32) * (ratio[0] * w * x[:, 5] + pad[0]) + (
+                #     np.array(x[:, 5] > 0, dtype=np.int32) - 1)
+                # labels[:, 6] = np.array(x[:, 6] > 0, dtype=np.int32) * (ratio[1] * h * x[:, 6] + pad[1]) + (
+                #     np.array(x[:, 6] > 0, dtype=np.int32) - 1)
+                # labels[:, 7] = np.array(x[:, 7] > 0, dtype=np.int32) * (ratio[0] * w * x[:, 7] + pad[0]) + (
+                #     np.array(x[:, 7] > 0, dtype=np.int32) - 1)
+                # labels[:, 8] = np.array(x[:, 8] > 0, dtype=np.int32) * (ratio[1] * h * x[:, 8] + pad[1]) + (
+                #     np.array(x[:, 8] > 0, dtype=np.int32) - 1)
+                # labels[:, 9] = np.array(x[:, 5] > 0, dtype=np.int32) * (ratio[0] * w * x[:, 9] + pad[0]) + (
+                #     np.array(x[:, 9] > 0, dtype=np.int32) - 1)
+                # labels[:, 10] = np.array(x[:, 5] > 0, dtype=np.int32) * (ratio[1] * h * x[:, 10] + pad[1]) + (
+                #     np.array(x[:, 10] > 0, dtype=np.int32) - 1)
+                # labels[:, 11] = np.array(x[:, 11] > 0, dtype=np.int32) * (ratio[0] * w * x[:, 11] + pad[0]) + (
+                #     np.array(x[:, 11] > 0, dtype=np.int32) - 1)
+                # labels[:, 12] = np.array(x[:, 12] > 0, dtype=np.int32) * (ratio[1] * h * x[:, 12] + pad[1]) + (
+                #     np.array(x[:, 12] > 0, dtype=np.int32) - 1)
+                # labels[:, 13] = np.array(x[:, 13] > 0, dtype=np.int32) * (ratio[0] * w * x[:, 13] + pad[0]) + (
+                #     np.array(x[:, 13] > 0, dtype=np.int32) - 1)
+                # labels[:, 14] = np.array(x[:, 14] > 0, dtype=np.int32) * (ratio[1] * h * x[:, 14] + pad[1]) + (
+                #     np.array(x[:, 14] > 0, dtype=np.int32) - 1)
+
+        self.augment = False # TODO recover this choice
         if self.augment:
+            assert false, "not ready for 106 landmark"
             # Augment imagespace
             if not mosaic:
                 img, labels = random_perspective(img, labels,
@@ -357,13 +366,22 @@ class LoadFaceImagesAndLabels(Dataset):  # for training/testing
             labels[:, 1:5] = xyxy2xywh(labels[:, 1:5])  # convert xyxy to xywh
             labels[:, [2, 4]] /= img.shape[0]  # normalized height 0-1
             labels[:, [1, 3]] /= img.shape[1]  # normalized width 0-1
+            
+            lstLMx = 5 + np.arange(0, 2*nLM, 2).astype(int)
+            lstLMy = lstLMx + 1
 
-            labels[:, [5, 7, 9, 11, 13]] /= img.shape[1]  # normalized landmark x 0-1
-            labels[:, [5, 7, 9, 11, 13]] = np.where(labels[:, [5, 7, 9, 11, 13]] < 0, -1, labels[:, [5, 7, 9, 11, 13]])
-            labels[:, [6, 8, 10, 12, 14]] /= img.shape[0]  # normalized landmark y 0-1
-            labels[:, [6, 8, 10, 12, 14]] = np.where(labels[:, [6, 8, 10, 12, 14]] < 0, -1, labels[:, [6, 8, 10, 12, 14]])
+            # labels[:, [5, 7, 9, 11, 13]] /= img.shape[1]  # normalized landmark x 0-1
+            # labels[:, [5, 7, 9, 11, 13]] = np.where(labels[:, [5, 7, 9, 11, 13]] < 0, -1, labels[:, [5, 7, 9, 11, 13]])
+            # labels[:, [6, 8, 10, 12, 14]] /= img.shape[0]  # normalized landmark y 0-1
+            # labels[:, [6, 8, 10, 12, 14]] = np.where(labels[:, [6, 8, 10, 12, 14]] < 0, -1, labels[:, [6, 8, 10, 12, 14]])
+            labels[:, lstLMx] /= img.shape[1]  # normalized landmark x 0-1
+            labels[:, lstLMx] = np.where(labels[:, lstLMx] < 0, -1, labels[:, lstLMx])
+            labels[:, lstLMy] /= img.shape[0]  # normalized landmark y 0-1
+            labels[:, lstLMy] = np.where(labels[:, lstLMy] < 0, -1, labels[:, lstLMy])
 
+        self.augment = False # TODO recover this choice
         if self.augment:
+            assert false, "not ready for 106 landmark"
             # flip up-down
             if random.random() < hyp['flipud']:
                 img = np.flipud(img)
@@ -396,9 +414,8 @@ class LoadFaceImagesAndLabels(Dataset):  # for training/testing
                     labels[:, [11, 12]] = labels[:, [13, 14]]
                     labels[:, [13, 14]] = mouth_left
 
-        nLM = 106 # TODO magic number
         labels_out = torch.zeros((nL, 1 + 1 + 4 + nLM*2 + 1))  ## TODO: Lapa8 magic number
-        # the first element is for @staticmethod collate_fn to add image idx
+        # the first element is for @staticmethod collate_fn() to add image idx
         if nL:
             labels_out[:, 1:] = torch.from_numpy(labels)
             #showlabels(img, labels[:, 1:5], labels[:, 5:15])
