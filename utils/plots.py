@@ -173,6 +173,8 @@ def plot_images(images, targets, paths=None, fname='images.jpg', names=None, max
                 if labels or conf[j] > 0.25:  # 0.25 conf thresh
                     label = '%s' % cls if labels else '%s %.1f' % (cls, conf[j])
                     plot_one_box(box, mosaic, label=label, color=None, line_thickness=tl)
+                if j > 10:
+                    break
 
             # ----- plot landmark ----- #
             LMs = (image_targets[:, 6:6+2*nLM]).T
@@ -196,6 +198,8 @@ def plot_images(images, targets, paths=None, fname='images.jpg', names=None, max
                 if labels or conf[j] > 0.25:  # 0.25 conf thresh
                     label = '%s' % cls if labels else '%s %.1f' % (cls, conf[j])
                     plot_one_landmark(LM, mosaic, color=None, radius = tl - 1)
+                if j > 10:
+                    break
 
         # Draw image filename labels
         if paths:
