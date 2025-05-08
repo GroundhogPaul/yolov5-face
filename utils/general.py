@@ -379,7 +379,7 @@ def jaccard_diou(box_a, box_b, iscrowd:bool=False):
     return out if use_batch else out.squeeze(0)
 
 
-def non_max_suppression_face(prediction, conf_thres=0.25, iou_thres=0.45, classes=None, agnostic=False, labels=()):
+def non_max_suppression_face(prediction, conf_thres=0.25, iou_thres=0.45, classes=None, agnostic=False, labels=(), nLM = 5):
     """Performs Non-Maximum Suppression (NMS) on inference results
     Inputs:
         prediction: [BBoxCenterX(0), BBoxCenterY(1), wBBox(2), hBBox(3), conf(4), \
@@ -391,12 +391,13 @@ def non_max_suppression_face(prediction, conf_thres=0.25, iou_thres=0.45, classe
     Returns:
         detections with shape: nx6 (x1, y1, x2, y2, conf, cls)
     """
-    nc = prediction.shape[2] - 15  # number of classes
+    outputExceptNC = 1 + 4 + nLM * 2 # 1: object; 4: bbox; nLM*2; what left is the NC: number of class
+    nc = prediction.shape[2] - outputExceptNC  # number of classes
     xc = prediction[..., 4] > conf_thres  # candidates
 
     # Settings
     min_wh, max_wh = 2, 4096  # (pixels) minimum and maximum box width and height, to offset the bbox of different class, so they won't NMS each other
-    time_limit = 10.0  # seconds to quit after
+    time_limit = 30.0  # seconds to quit after
     redundant = True  # require redundant detections, selected bbox must have at least 1 other box IoU > threshold
     multi_label = nc > 1  # multiple labels per box (adds 0.5ms/img)
     merge = False  # use merge-NMS using weighted mean to alleviate shake of BBox (if set true, could support hybrid label)
@@ -411,10 +412,10 @@ def non_max_suppression_face(prediction, conf_thres=0.25, iou_thres=0.45, classe
         # Cat apriori labels if autolabelling
         if labels and len(labels[xi]):
             l = labels[xi]
-            v = torch.zeros((len(l), nc + 15), device=x.device)
+            v = torch.zeros((len(l), nc + outputExceptNC), device=x.device)
             v[:, :4] = l[:, 1:5]  # box
             v[:, 4] = 1.0  # conf
-            v[range(len(l)), l[:, 0].long() + 15] = 1.0  # cls
+            v[range(len(l)), l[:, 0].long() + outputExceptNC] = 1.0  # cls
             x = torch.cat((x, v), 0)
 
         # If none remain process next image
@@ -422,18 +423,18 @@ def non_max_suppression_face(prediction, conf_thres=0.25, iou_thres=0.45, classe
             continue
 
         # Compute conf
-        x[:, 15:] *= x[:, 4:5]  # conf = obj_conf * cls_conf
+        x[:, outputExceptNC:] *= x[:, 4:5]  # conf = obj_conf * cls_conf
 
         # Box (center x, center y, width, height) to (x1, y1, x2, y2)
         box = xywh2xyxy(x[:, :4])
 
         # Detections matrix nx6 (xyxy, conf, landmarks, cls)
         if multi_label:
-            i, j = (x[:, 15:] > conf_thres).nonzero(as_tuple=False).T
-            x = torch.cat((box[i], x[i, j + 15, None], x[i, 5:15] ,j[:, None].float()), 1)
+            i, j = (x[:, outputExceptNC:] > conf_thres).nonzero(as_tuple=False).T
+            x = torch.cat((box[i], x[i, j + outputExceptNC, None], x[i, 5:5+nLM*2] ,j[:, None].float()), 1)
         else:  # best class only
-            conf, j = x[:, 15:].max(1, keepdim=True) # j: the index of winner class
-            x = torch.cat((box, conf, x[:, 5:15], j.float()), 1)[conf.view(-1) > conf_thres]
+            conf, j = x[:, outputExceptNC:].max(1, keepdim=True) # j: the index of winner class
+            x = torch.cat((box, conf, x[:, 5:5+nLM*2], j.float()), 1)[conf.view(-1) > conf_thres]
 
         # Filter by class
         if classes is not None:
@@ -445,7 +446,7 @@ def non_max_suppression_face(prediction, conf_thres=0.25, iou_thres=0.45, classe
             continue
 
         # Batched NMS
-        c = x[:, 15:16] * (0 if agnostic else max_wh)  # classes
+        c = x[:, outputExceptNC:outputExceptNC+1] * (0 if agnostic else max_wh)  # classes
         boxes, scores = x[:, :4] + c, x[:, 4]  # boxes (offset by class), scores
         i = torchvision.ops.nms(boxes, scores, iou_thres)  # NMS
         #if i.shape[0] > max_det:  # limit detections

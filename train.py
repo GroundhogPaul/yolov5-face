@@ -67,6 +67,7 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
     init_seeds(2 + rank)
     with open(opt.data) as f:
         data_dict = yaml.load(f, Loader=yaml.FullLoader)  # data dict
+    nLM = data_dict["kpt_shape"][0]
     with torch_distributed_zero_first(rank):
         check_dataset(data_dict)  # check
     train_path = data_dict['train']
@@ -90,7 +91,7 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
         model.load_state_dict(state_dict, strict=False)  # load
         logger.info('Transferred %g/%g items from %s' % (len(state_dict), len(model.state_dict()), weights))  # report
     else:
-        model = Model(opt.cfg, ch=3, nc=nc).to(device)  # create
+        model = Model(opt.cfg, ch=3, nc=nc, nLM=nLM).to(device)  # create
 
     # Freeze
     freeze = []  # parameter names to freeze (full or partial)
@@ -205,9 +206,10 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
             # cf = torch.bincount(c.long(), minlength=nc) + 1.  # frequency
             # model._initialize_biases(cf.to(device))
             if plots:
-                plot_labels(labels, save_dir, loggers)
-                if tb_writer:
-                    tb_writer.add_histogram('classes', c, 0)
+                # plot_labels(labels, save_dir, loggers)
+                # if tb_writer:
+                    # tb_writer.add_histogram('classes', c, 0)
+                pass
 
             # Anchors
             if not opt.noautoanchor:
@@ -313,7 +315,8 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
                 # Plot
                 if plots and ni < 3:
                     f = save_dir / f'train_batch{ni}.jpg'  # filename
-                    Thread(target=plot_images, args=(imgs, targets, paths, f), daemon=True).start()
+                    # Thread(target=plot_images, args=(imgs, targets, paths, f), daemon=True).start()
+                    plot_images(imgs, targets, paths, f, nLM = 106)
                     # if tb_writer:
                     #     tb_writer.add_image(f, result, dataformats='HWC', global_step=epoch)
                     #     tb_writer.add_graph(model, imgs)  # add model to tensorboard
@@ -329,6 +332,7 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
 
         # DDP process 0 or single-GPU
         if rank in [-1, 0] and epoch > 20:
+        # if rank in [-1, 0] and epoch > 0: ############# for test
             # mAP
             if ema:
                 ema.update_attr(model, include=['yaml', 'nc', 'hyp', 'gr', 'names', 'stride', 'class_weights'])
@@ -419,6 +423,18 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
                                           save_dir=save_dir,
                                           save_json=save_json,
                                           plots=False)
+        else:
+            # for conf, iou, save_json in ([0.25, 0.45, False], [0.001, 0.65, True]):  # speed, mAP tests
+            conf, iou, save_json = 0.25, 0.45, False  # speed, mAP tests
+            results, maps, times = test.test(opt.data,
+                                        batch_size=total_batch_size,
+                                        imgsz=imgsz_test,
+                                        model=ema.ema,
+                                        single_cls=opt.single_cls,
+                                        dataloader=testloader,
+                                        save_dir=save_dir,
+                                        plots=True,
+                                        log_imgs=opt.log_imgs if wandb else 0)
 
     else:
         dist.destroy_process_group()
@@ -465,8 +481,8 @@ if __name__ == '__main__':
     opt.world_size = int(os.environ['WORLD_SIZE']) if 'WORLD_SIZE' in os.environ else 1
     opt.global_rank = int(os.environ['RANK']) if 'RANK' in os.environ else -1
     set_logging(opt.global_rank)
-    if opt.global_rank in [-1, 0]:
-        check_git_status()
+    # if opt.global_rank in [-1, 0]:
+        # check_git_status()
 
     # Resume
     if opt.resume:  # resume an interrupted run

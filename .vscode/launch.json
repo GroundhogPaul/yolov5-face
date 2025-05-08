@@ -10,7 +10,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/detect_face.py",
             "console": "integratedTerminal",
-            "args": ["--weights", "./weights/Pretrained/yolov5n-0.5.pt", 
+            "args": ["--weights", "./weights/Pretrained/yolov5n-0.5-LM5.pt", 
                 "--source", "./runs/AD_640_480.bmp", "--save-img"],
             "justMyCode": false
         },
@@ -36,7 +36,7 @@
                 // "--data", "data/coco.yaml", 
                 "--project", "runs/train/Lapa", 
                 "--name", "Lapa",
-                "--epochs", "1"],
+                "--epochs", "2"],
             "justMyCode": false
         },
         {
@@ -46,6 +46,15 @@
             "program": "${workspaceFolder}/export.py",
             "console": "integratedTerminal",
             "args": ["--weights", "./weights/Pretrained/yolov5n-0.5.pt"],
+            "justMyCode": false
+        },
+        {
+            "name": "Python: Debug File addAttr.py",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/addAttr.py",
+            "console": "integratedTerminal",
+            // "args": ["--weights", "./weights/Pretrained/yolov5n-0.5.pt"],
             "justMyCode": false
         }
     ]

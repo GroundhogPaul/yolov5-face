@@ -14,6 +14,9 @@ train: ../../DataSet/Lapa8-yolo5-face/images/train # train images (relative to '
 val: ../../DataSet/Lapa8-yolo5-face/images/val # val images (relative to 'path') 4 images
 test: # test images (optional)
 
+# Keypoints
+kpt_shape: [106, 2]
+
 # number of classes
 nc: 1
 

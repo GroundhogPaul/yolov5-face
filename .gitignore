@@ -4,3 +4,4 @@
 *.pt
 /runs
 *.pyc
+/weights/Pretrained

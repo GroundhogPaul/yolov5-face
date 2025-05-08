@@ -98,8 +98,6 @@ def test(data,
     loss = torch.zeros(3, device=device)
     jdict, stats, ap, ap_class, wandb_images = [], [], [], [], []
     for batch_i, (img, targets, paths, shapes) in enumerate(tqdm(dataloader, desc=s)):
-        for target in targets:
-            print(target)
         img = img.to(device, non_blocking=True)
         img = img.half() if half else img.float()  # uint8 to fp16/32
         img /= 255.0  # 0 - 255 to 0.0 - 1.0
@@ -121,12 +119,16 @@ def test(data,
             lb = [targets[targets[:, 0] == i, 1:] for i in range(nb)] if save_hybrid else []  # for autolabelling
             t = time_synchronized()
             #output = non_max_suppression(inf_out, conf_thres=conf_thres, iou_thres=iou_thres, labels=lb)
-            output = non_max_suppression_face(inf_out, conf_thres=conf_thres, iou_thres=iou_thres, labels=lb)
+            output = non_max_suppression_face(inf_out, conf_thres=conf_thres, iou_thres=iou_thres, labels=lb, nLM = model.getLandMarkNum())
             t1 += time_synchronized() - t
 
         # Statistics per image
+        # TODO magic number nLM
+        nLM = 5
+        nLM = 106
         for si, pred in enumerate(output):
-            pred = torch.cat((pred[:, :5], pred[:, 15:]), 1) # throw landmark in thresh
+            pred = torch.cat((pred[:, :5], pred[:, 5 + 2*nLM:]), 1) # throw landmark in thresh
+            # pred = torch.cat((pred[:, :5], pred[:, 15:]), 1) # throw landmark in thresh
             labels = targets[targets[:, 0] == si, 1:] # the first col of targets is index, set by @staticmethod collate_fn()
             nl = len(labels) # number of labelled box in this image
             tcls = labels[:, 0].tolist() if nl else []  # target class
@@ -212,9 +214,10 @@ def test(data,
         # Plot images
         if plots and batch_i < 3:
             f = save_dir / f'test_batch{batch_i}_labels.jpg'  # labels
-            Thread(target=plot_images, args=(img, targets, paths, f, names), daemon=True).start()
+            plot_images(img, targets, paths=paths, fname=f, names = names, nLM = nLM)
             f = save_dir / f'test_batch{batch_i}_pred.jpg'  # predictions
-            Thread(target=plot_images, args=(img, output_to_target(output), paths, f, names), daemon=True).start()
+            plot_images(img, output_to_target(output), paths=paths, fname=f, names = names, nLM = nLM)
+            # Thread(target=plot_images, args=(img, output_to_target(output), paths, f, names), daemon=True).start()
 
     # Compute statistics
     stats = [np.concatenate(x, 0) for x in zip(*stats)]  # to numpy

@@ -1,6 +1,7 @@
 import argparse
 import logging
 import math
+import numpy as np
 import sys
 from copy import deepcopy
 from pathlib import Path
@@ -28,16 +29,16 @@ class Detect(nn.Module):
     stride = None  # strides computed during build
     export_cat = False  # onnx export cat output
 
-    def __init__(self, nc=80, anchors=(), ch=()):  # detection layer
+    def __init__(self, nc=80, anchors=(), ch=(), nLM = 5):  # detection layer
         # ch=() : the channel of the input of three resolution
         super(Detect, self).__init__()
         self.nc = nc  # number of classes
         #self.no = nc + 5  # number of outputs per anchor
-        nLM = 106
-        self.no = nc + 5 + nLM*2  # number of outputs per anchor
+        self.nLM = nLM
+        self.no = nc + 5 + self.nLM*2  # number of outputs per anchor
 
         self.nl = len(anchors)  # number of detection layers
-        self.na = len(anchors[0]) // 2  # number of anchors
+        self.na = len(anchors[0]) // 2  # number of anchors per detection layers
         self.grid = [torch.zeros(1)] * self.nl  # init grid
         a = torch.tensor(anchors).float().view(self.nl, -1, 2)
         self.register_buffer('anchors', a)  # shape(nl,na,2)
@@ -48,6 +49,7 @@ class Detect(nn.Module):
         # x = x.copy()  # for profiling
         z = []  # inference output
         if self.export_cat:
+            assert False, "code for n landmarks is not ready"
             for i in range(self.nl):
                 x[i] = self.m[i](x[i])  # conv
                 bs, _, ny, nx = x[i].shape  # x(bs,255,20,20) to x(bs,3,20,20,85)
@@ -85,21 +87,24 @@ class Detect(nn.Module):
                 if self.grid[i].shape[2:4] != x[i].shape[2:4]:
                     self.grid[i] = self._make_grid(nx, ny).to(x[i].device)
 
+                xi = x[i]
                 y = torch.full_like(x[i], 0)
-                class_range = list(range(5)) + list(range(15,15+self.nc))
+                class_range = list(range(5)) + list(range(5+2*self.nLM,5+2*self.nLM+self.nc))
                 y[..., class_range] = x[i][..., class_range].sigmoid()
-                y[..., 5:15] = x[i][..., 5:15]
+                y[..., 5:5+2*self.nLM] = x[i][..., 5:5+2*self.nLM]
                 #y = x[i].sigmoid()
 
                 y[..., 0:2] = (y[..., 0:2] * 2. - 0.5 + self.grid[i].to(x[i].device)) * self.stride[i]  # xy
                 y[..., 2:4] = (y[..., 2:4] * 2) ** 2 * self.anchor_grid[i]  # wh # the square is to avoid negative number
 
                 #y[..., 5:15] = y[..., 5:15] * 8 - 4
-                y[..., 5:7]   = y[..., 5:7] *   self.anchor_grid[i] + self.grid[i].to(x[i].device) * self.stride[i] # landmark x1 y1
-                y[..., 7:9]   = y[..., 7:9] *   self.anchor_grid[i] + self.grid[i].to(x[i].device) * self.stride[i]# landmark x2 y2
-                y[..., 9:11]  = y[..., 9:11] *  self.anchor_grid[i] + self.grid[i].to(x[i].device) * self.stride[i]# landmark x3 y3
-                y[..., 11:13] = y[..., 11:13] * self.anchor_grid[i] + self.grid[i].to(x[i].device) * self.stride[i]# landmark x4 y4
-                y[..., 13:15] = y[..., 13:15] * self.anchor_grid[i] + self.grid[i].to(x[i].device) * self.stride[i]# landmark x5 y5
+                for iLM in range(self.nLM):
+                    y[..., 5+2*iLM: 7+2*iLM] = y[..., 5+2*iLM: 7+2*iLM] * self.anchor_grid[i] + self.grid[i].to(x[i].device) * self.stride[i] # landmark x1 y1
+                # y[..., 5:7]   = y[..., 5:7] *   self.anchor_grid[i] + self.grid[i].to(x[i].device) * self.stride[i] # landmark x1 y1
+                # y[..., 7:9]   = y[..., 7:9] *   self.anchor_grid[i] + self.grid[i].to(x[i].device) * self.stride[i] # landmark x2 y2
+                # y[..., 9:11]  = y[..., 9:11] *  self.anchor_grid[i] + self.grid[i].to(x[i].device) * self.stride[i] # landmark x3 y3
+                # y[..., 11:13] = y[..., 11:13] * self.anchor_grid[i] + self.grid[i].to(x[i].device) * self.stride[i] # landmark x4 y4
+                # y[..., 13:15] = y[..., 13:15] * self.anchor_grid[i] + self.grid[i].to(x[i].device) * self.stride[i] # landmark x5 y5
 
                 #y[..., 5:7] = (y[..., 5:7] * 2 -1) * self.anchor_grid[i]  # landmark x1 y1
                 #y[..., 7:9] = (y[..., 7:9] * 2 -1) * self.anchor_grid[i]  # landmark x2 y2
@@ -108,7 +113,12 @@ class Detect(nn.Module):
                 #y[..., 13:15] = (y[..., 13:15] * 2 -1) * self.anchor_grid[i]  # landmark x5 y5
 
                 z.append(y.view(bs, -1, self.no))
+                # np.savetxt("output.csv", y[0,0,0,:,:].cpu().numpy(), delimiter=" ", fmt="%.6f")
 
+        # if not self.training:
+        #     for jjj in z:
+        #         print(jjj.shape)
+        #     print(torch.cat(z,1).shape)
         return x if self.training else (torch.cat(z, 1), x)
 
     @staticmethod
@@ -127,7 +137,7 @@ class Detect(nn.Module):
         return grid, anchor_grid
 
 class Model(nn.Module):
-    def __init__(self, cfg='yolov5s.yaml', ch=3, nc=None):  # model, input channels, number of classes
+    def __init__(self, cfg='yolov5s.yaml', ch=3, nc=None, nLM = 5):  # model, input channels, number of classes
         super(Model, self).__init__()
         if isinstance(cfg, dict):
             self.yaml = cfg  # model dict
@@ -142,7 +152,7 @@ class Model(nn.Module):
         if nc and nc != self.yaml['nc']:
             logger.info('Overriding model.yaml nc=%g with nc=%g' % (self.yaml['nc'], nc))
             self.yaml['nc'] = nc  # override yaml value
-        self.model, self.save = parse_model(deepcopy(self.yaml), ch=[ch])  # model, savelist
+        self.model, self.save = parse_model(deepcopy(self.yaml), ch=[ch], nLM = nLM)  # model, savelist
         self.names = [str(i) for i in range(self.yaml['nc'])]  # default names
         # print([x.shape for x in self.forward(torch.zeros(1, ch, 64, 64))])
 
@@ -260,11 +270,15 @@ class Model(nn.Module):
 
     def info(self, verbose=False, img_size=640):  # print model information
         model_info(self, verbose, img_size)
+    
+    def getLandMarkNum(self)->int: # number of landmark
+        layer_last = self.model[-1]
+        assert isinstance(layer_last, Detect)
+        return layer_last.nLM
 
-
-def parse_model(d, ch):  # model_dict, input_channels(3)
+def parse_model(d, ch, nLM):  # model_dict, input_channels(3)
     logger.info('\n%3s%18s%3s%10s  %-40s%-30s' % ('', 'from', 'n', 'params', 'module', 'arguments'))
-    anchors, nc, gd, gw = d['anchors'], d['nc'], d['depth_multiple'], d['width_multiple']
+    anchors, nc, gd, gw = d['anchors'], d['nc'], d['depth_multiple'], d['width_multiple'] # gd: gain depth; gw: gain width
     na = (len(anchors[0]) // 2) if isinstance(anchors, list) else anchors  # number of anchors
     no = na * (nc + 5)  # number of outputs = anchors * (classes + 5)
 
@@ -311,6 +325,7 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
             args.append([ch[x + 1] for x in f])
             if isinstance(args[1], int):  # number of anchors
                 args[1] = [list(range(args[1] * 2))] * len(f)
+            args.append(nLM)
         else:
             c2 = ch[f]
 

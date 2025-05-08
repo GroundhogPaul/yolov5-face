@@ -11,6 +11,7 @@ import torch
 import torch.backends.cudnn as cudnn
 from numpy import random
 import copy
+from models.yolo import Detect
 
 FILE = Path(__file__).resolve()
 ROOT = FILE.parents[0]  # YOLOv5 root directory
@@ -157,7 +158,7 @@ def detect(
         pred = model(img)[0]
         
         # Apply NMS
-        pred = non_max_suppression_face(pred, conf_thres, iou_thres)
+        pred = non_max_suppression_face(pred, conf_thres, iou_thres, nLM = model.getLandMarkNum())
         print(len(pred[0]), 'face' if len(pred[0]) == 1 else 'faces')
 
         # Process detections
@@ -198,6 +199,7 @@ def detect(
                 if dataset.mode == 'image':
                     save_path = "./detect_face_out.jpg"
                     cv2.imwrite(save_path, im0)
+                    print(os.path.basename(__file__), ": save output image to ", save_path)
                 else:  # 'video' or 'stream'
                     if vid_path[i] != save_path:  # new video
                         vid_path[i] = save_path
