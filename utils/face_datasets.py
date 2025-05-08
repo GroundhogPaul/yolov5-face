@@ -82,6 +82,7 @@ def create_dataloader(path, imgsz, batch_size, stride, opt, hyp=None, augment=Fa
                         pin_memory=True,
                         collate_fn=LoadFaceImagesAndLabels.collate_fn4 if quad else LoadFaceImagesAndLabels.collate_fn)
     return dataloader, dataset
+
 class InfiniteDataLoader(torch.utils.data.dataloader.DataLoader):
     """ Dataloader that reuses workers
 
@@ -99,6 +100,7 @@ class InfiniteDataLoader(torch.utils.data.dataloader.DataLoader):
     def __iter__(self):
         for i in range(len(self)):
             yield next(self.iterator)
+
 class _RepeatSampler(object):
     """ Sampler that repeats forever
 
