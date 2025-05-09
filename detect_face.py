@@ -127,15 +127,14 @@ def detect(
         bs = 1  # batch_size
     vid_path, vid_writer = [None] * bs, [None] * bs
     
-    for path, imRGBltd_ChHW, im0s, vid_cap in dataset: # ltd: lettered
+    for path, imgRGBltd_ChHW, im0s, vid_cap in dataset: # ltd: lettered
         
-        if len(imRGBltd_ChHW.shape) == 4:
-            orgimg = np.squeeze(imRGBltd_ChHW.transpose(0, 2, 3, 1), axis= 0)
+        if len(imgRGBltd_ChHW.shape) == 4:
+            orgimg = np.squeeze(imgRGBltd_ChHW.transpose(0, 2, 3, 1), axis= 0)
         else:
-            imRGBltd_HWCh = imRGBltd_ChHW.transpose(1, 2, 0)
-        h0, w0 = imRGBltd_HWCh.shape[:2]  # orig hw
+            imgRGBltd_HWCh = imgRGBltd_ChHW.transpose(1, 2, 0)
+        h0, w0 = imgRGBltd_HWCh.shape[:2]  # orig hw
         
-        imBGRltd_HWCh = cv2.cvtColor(imRGBltd_HWCh, cv2.COLOR_BGR2RGB)
         # img0BGR = copy.deepcopy(imBGRltd_HWCh)
         # r = img_size / max(h0, w0)  # resize image to img_size
         # if r != 1:  # always resize down, only resize up if training with augmentation
@@ -144,20 +143,20 @@ def detect(
 
         imgsz = check_img_size(img_size, s=model.stride.max())  # check img_size
 
-        imgBGRltd_HWCh = letterbox(imBGRltd_HWCh, new_shape=imgsz)[0]
+        imgRGBltd_HWCh = letterbox(imgRGBltd_HWCh, new_shape=imgsz)[0]
         # cv2.imshow("", imgBGR)
         # cv2.waitKey(0)
         # Convert from w,h,c to c,w,h
-        imgBGRltd_ChHW = imgBGRltd_HWCh.transpose(2, 0, 1).copy()
+        imgRGBltd_ChHW = imgRGBltd_HWCh.transpose(2, 0, 1).copy()
 
-        imgBGRltd_ChHW = torch.from_numpy(imgBGRltd_ChHW).to(device)
-        imgBGRltd_ChHW = imgBGRltd_ChHW.float()  # uint8 to fp16/32
-        imgBGRltd_ChHW /= 255.0  # 0 - 255 to 0.0 - 1.0
-        if imgBGRltd_ChHW.ndimension() == 3:
-            imgBGRltd_ChHW = imgBGRltd_ChHW.unsqueeze(0)
+        imgRGBltd_ChHW = torch.from_numpy(imgRGBltd_ChHW).to(device)
+        imgRGBltd_ChHW = imgRGBltd_ChHW.float()  # uint8 to fp16/32
+        imgRGBltd_ChHW /= 255.0  # 0 - 255 to 0.0 - 1.0
+        if imgRGBltd_ChHW.ndimension() == 3:
+            imgRGBltd_ChHW = imgRGBltd_ChHW.unsqueeze(0)
 
         # Inference
-        pred = model(imgBGRltd_ChHW)[0]
+        pred = model(imgRGBltd_ChHW)[0]
         
         # Apply NMS
         pred = non_max_suppression_face(pred, conf_thres, iou_thres, nLM = model.getLandMarkNum())
@@ -176,13 +175,13 @@ def detect(
 
             if len(det):
                 # Rescale boxes from img_size to im0 size
-                det[:, :4] = scale_coords(imgBGRltd_ChHW.shape[2:], det[:, :4], im0.shape).round()
+                det[:, :4] = scale_coords(imgRGBltd_ChHW.shape[2:], det[:, :4], im0.shape).round()
 
                 # Print results
                 for c in det[:, -1].unique():
                     n = (det[:, -1] == c).sum()  # detections per class
 
-                det[:, 5:15] = scale_coords_landmarks(imgBGRltd_ChHW.shape[2:], det[:, 5:15], im0.shape).round()
+                det[:, 5:15] = scale_coords_landmarks(imgRGBltd_ChHW.shape[2:], det[:, 5:15], im0.shape).round()
 
                 for j in range(det.size()[0]):
                     xyxy = det[j, :4].view(-1).tolist()
