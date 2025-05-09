@@ -49,10 +49,10 @@
             "justMyCode": false
         },
         {
-            "name": "Python: Debug File addAttr.py",
+            "name": "Python: Debug Current File",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/addAttr.py",
+            "program": "${file}",
             "console": "integratedTerminal",
             // "args": ["--weights", "./weights/Pretrained/yolov5n-0.5.pt"],
             "justMyCode": false

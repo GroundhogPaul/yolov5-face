@@ -157,6 +157,7 @@ class LoadImages:  # for inference
         path = self.files[self.count]
 
         if self.video_flag[self.count]:
+            assert False, "not read for video mode, because bgr, rgb stuff is not clear"
             # Read video
             self.mode = 'video'
             ret_val, img0 = self.cap.read()
@@ -176,18 +177,18 @@ class LoadImages:  # for inference
         else:
             # Read image
             self.count += 1
-            img0 = cv2.imread(path)  # BGR
-            assert img0 is not None, 'Image Not Found ' + path
+            img0BGR = cv2.imread(path)  # BGR
+            assert img0BGR is not None, 'Image Not Found ' + path
             print(f'image {self.count}/{self.nf} {path}: ', end='')
 
         # Padded resize
-        img = letterbox(img0, new_shape=self.img_size)[0]
+        imgBGRltd = letterbox(img0BGR, new_shape=self.img_size)[0] # ltd: lettered
 
         # Convert
-        img = img[:, :, ::-1].transpose(2, 0, 1)  # BGR to RGB, to 3x416x416
-        img = np.ascontiguousarray(img)
+        imgRGBltd_ChHW = imgBGRltd[:, :, ::-1].transpose(2, 0, 1)  # BGR to RGB, to 3x416x416
+        imgRGBltd_ChHW = np.ascontiguousarray(imgRGBltd_ChHW)
 
-        return path, img, img0, self.cap
+        return path, imgRGBltd_ChHW, img0BGR, self.cap
 
     def new_video(self, path):
         self.frame = 0

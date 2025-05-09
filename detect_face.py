@@ -127,35 +127,37 @@ def detect(
         bs = 1  # batch_size
     vid_path, vid_writer = [None] * bs, [None] * bs
     
-    for path, im, im0s, vid_cap in dataset:
+    for path, imRGBltd_ChHW, im0s, vid_cap in dataset: # ltd: lettered
         
-        if len(im.shape) == 4:
-            orgimg = np.squeeze(im.transpose(0, 2, 3, 1), axis= 0)
+        if len(imRGBltd_ChHW.shape) == 4:
+            orgimg = np.squeeze(imRGBltd_ChHW.transpose(0, 2, 3, 1), axis= 0)
         else:
-            orgimg = im.transpose(1, 2, 0)
+            imRGBltd_HWCh = imRGBltd_ChHW.transpose(1, 2, 0)
+        h0, w0 = imRGBltd_HWCh.shape[:2]  # orig hw
         
-        orgimg = cv2.cvtColor(orgimg, cv2.COLOR_BGR2RGB)
-        img0 = copy.deepcopy(orgimg)
-        h0, w0 = orgimg.shape[:2]  # orig hw
-        r = img_size / max(h0, w0)  # resize image to img_size
-        if r != 1:  # always resize down, only resize up if training with augmentation
-            interp = cv2.INTER_AREA if r < 1  else cv2.INTER_LINEAR
-            img0 = cv2.resize(img0, (int(w0 * r), int(h0 * r)), interpolation=interp)
+        imBGRltd_HWCh = cv2.cvtColor(imRGBltd_HWCh, cv2.COLOR_BGR2RGB)
+        # img0BGR = copy.deepcopy(imBGRltd_HWCh)
+        # r = img_size / max(h0, w0)  # resize image to img_size
+        # if r != 1:  # always resize down, only resize up if training with augmentation
+        #     interp = cv2.INTER_AREA if r < 1  else cv2.INTER_LINEAR
+        #     img0BGR = cv2.resize(imgBGRltd_HWCh, (int(w0 * r), int(h0 * r)), interpolation=interp)
 
         imgsz = check_img_size(img_size, s=model.stride.max())  # check img_size
 
-        img = letterbox(img0, new_shape=imgsz)[0]
+        imgBGRltd_HWCh = letterbox(imBGRltd_HWCh, new_shape=imgsz)[0]
+        # cv2.imshow("", imgBGR)
+        # cv2.waitKey(0)
         # Convert from w,h,c to c,w,h
-        img = img.transpose(2, 0, 1).copy()
+        imgBGRltd_ChHW = imgBGRltd_HWCh.transpose(2, 0, 1).copy()
 
-        img = torch.from_numpy(img).to(device)
-        img = img.float()  # uint8 to fp16/32
-        img /= 255.0  # 0 - 255 to 0.0 - 1.0
-        if img.ndimension() == 3:
-            img = img.unsqueeze(0)
+        imgBGRltd_ChHW = torch.from_numpy(imgBGRltd_ChHW).to(device)
+        imgBGRltd_ChHW = imgBGRltd_ChHW.float()  # uint8 to fp16/32
+        imgBGRltd_ChHW /= 255.0  # 0 - 255 to 0.0 - 1.0
+        if imgBGRltd_ChHW.ndimension() == 3:
+            imgBGRltd_ChHW = imgBGRltd_ChHW.unsqueeze(0)
 
         # Inference
-        pred = model(img)[0]
+        pred = model(imgBGRltd_ChHW)[0]
         
         # Apply NMS
         pred = non_max_suppression_face(pred, conf_thres, iou_thres, nLM = model.getLandMarkNum())
@@ -174,13 +176,13 @@ def detect(
 
             if len(det):
                 # Rescale boxes from img_size to im0 size
-                det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
+                det[:, :4] = scale_coords(imgBGRltd_ChHW.shape[2:], det[:, :4], im0.shape).round()
 
                 # Print results
                 for c in det[:, -1].unique():
                     n = (det[:, -1] == c).sum()  # detections per class
 
-                det[:, 5:15] = scale_coords_landmarks(img.shape[2:], det[:, 5:15], im0.shape).round()
+                det[:, 5:15] = scale_coords_landmarks(imgBGRltd_ChHW.shape[2:], det[:, 5:15], im0.shape).round()
 
                 for j in range(det.size()[0]):
                     xyxy = det[j, :4].view(-1).tolist()
