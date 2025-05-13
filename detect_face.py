@@ -68,28 +68,36 @@ def scale_coords_landmarks(img1_shape, coords, img0_shape, ratio_pad=None):
     # coords[:, 9].clamp_(0, img0_shape[0])  # y5
     return coords
 
-def show_results(img, xyxy, conf, landmarks, class_num):
-    h,w,c = img.shape
-    tl = 1 or round(0.002 * (h + w) / 2) + 1  # line/font thickness
-    x1 = int(xyxy[0])
-    y1 = int(xyxy[1])
-    x2 = int(xyxy[2])
-    y2 = int(xyxy[3])
-    img = img.copy()
+def show_results(imgIn, imgOut, xyxy, conf, landmarks, class_num, nLM = 5):
+    h,w,c = imgIn.shape
+    # ----- scale up to 640 ----- # or the image would be too small to observe the landmarks
+    rScaleUp = int(max(640 / max(h,w), 1)) # ratio scale up
+    print(rScaleUp)
+    h, w = h * rScaleUp, w* rScaleUp
+    if imgOut is None or max(imgOut.shape) == 640:
+        pass
+    else:
+        imgOut = cv2.resize(imgIn, (w, h), interpolation=cv2.INTER_LINEAR)
     
-    cv2.rectangle(img, (x1,y1), (x2, y2), (0,255,0), thickness=tl, lineType=cv2.LINE_AA)
+    tl = 1 or round(0.002 * (h + w) / 2) + 1  # line/font thickness
+    x1 = int(xyxy[0] * rScaleUp)
+    y1 = int(xyxy[1] * rScaleUp)
+    x2 = int(xyxy[2] * rScaleUp)
+    y2 = int(xyxy[3] * rScaleUp)
+    
+    cv2.rectangle(imgOut, (x1,y1), (x2, y2), (0,255,0), thickness=tl, lineType=cv2.LINE_AA)
 
     clors = [(255,0,0),(0,255,0),(0,0,255),(255,255,0),(0,255,255)]
 
-    for i in range(5):
-        point_x = int(landmarks[2 * i])
-        point_y = int(landmarks[2 * i + 1])
-        cv2.circle(img, (point_x, point_y), tl+1, clors[i], -1)
+    for i in range(nLM):
+        point_x = int(landmarks[2 * i] * rScaleUp)
+        point_y = int(landmarks[2 * i + 1] * rScaleUp)
+        cv2.circle(imgOut, (point_x, point_y), tl, clors[i%5], -1)
 
     tf = max(tl - 1, 1)  # font thickness
     label = str(conf)[:5]
-    cv2.putText(img, label, (x1, y1 - 2), 0, tl / 3, [225, 255, 255], thickness=tf, lineType=cv2.LINE_AA)
-    return img
+    cv2.putText(imgOut, label, (x1, y1 - 2), 0, tl / 3, [225, 255, 255], thickness=tf, lineType=cv2.LINE_AA)
+    return imgOut
 
 
 def detect(
@@ -173,6 +181,7 @@ def detect(
             p = Path(p)  # to Path
             save_path = str(Path(save_dir) / p.name)  # im.jpg
 
+            imPlot = copy.deepcopy(im0) 
             if len(det):
                 # Rescale boxes from img_size to im0 size
                 det[:, :4] = scale_coords(imgRGBltd_ChHW.shape[2:], det[:, :4], im0.shape).round()
@@ -181,25 +190,26 @@ def detect(
                 for c in det[:, -1].unique():
                     n = (det[:, -1] == c).sum()  # detections per class
 
-                det[:, 5:15] = scale_coords_landmarks(imgRGBltd_ChHW.shape[2:], det[:, 5:15], im0.shape).round()
+                nLM = 106 # TODO magic number
+                det[:, 5:5+nLM*2] = scale_coords_landmarks(imgRGBltd_ChHW.shape[2:], det[:, 5:5+nLM*2], im0.shape).round()
 
                 for j in range(det.size()[0]):
                     xyxy = det[j, :4].view(-1).tolist()
                     conf = det[j, 4].cpu().numpy()
-                    landmarks = det[j, 5:15].view(-1).tolist()
-                    class_num = det[j, 15].cpu().numpy()
-                    
-                    im0 = show_results(im0, xyxy, conf, landmarks, class_num)
+                    landmarks = det[j, 5:5+nLM*2].view(-1).tolist()
+                    class_num = det[j, 5+nLM*2].cpu().numpy()
+
+                    imPlot = show_results(im0, imPlot, xyxy, conf, landmarks, class_num, nLM = nLM)
             
             if view_img:
-                cv2.imshow('result', im0)
+                cv2.imshow('result', imPlot)
                 k = cv2.waitKey(1)
                     
             # Save results (image with detections)
             if save_img:
                 if dataset.mode == 'image':
                     save_path = "./detect_face_out.jpg"
-                    cv2.imwrite(save_path, im0)
+                    cv2.imwrite(save_path, imPlot)
                     print(os.path.basename(__file__), ": save output image to ", save_path)
                 else:  # 'video' or 'stream'
                     if vid_path[i] != save_path:  # new video
