@@ -72,9 +72,8 @@ def show_results(imgIn, imgOut, xyxy, conf, landmarks, class_num, nLM = 5):
     h,w,c = imgIn.shape
     # ----- scale up to 640 ----- # or the image would be too small to observe the landmarks
     rScaleUp = int(max(640 / max(h,w), 1)) # ratio scale up
-    print(rScaleUp)
     h, w = h * rScaleUp, w* rScaleUp
-    if imgOut is None or max(imgOut.shape) == 640:
+    if rScaelUp == 1 or max(imgOut.shape) == 640:
         pass
     else:
         imgOut = cv2.resize(imgIn, (w, h), interpolation=cv2.INTER_LINEAR)
