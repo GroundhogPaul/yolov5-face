@@ -46,60 +46,81 @@ class Detect(nn.Module):
         self.m = nn.ModuleList(nn.Conv2d(x, self.no * self.na, 1) for x in ch)  # output conv
 
     def forward(self, x):
+        self.nLM = 106 ## TODO magic number
         # x = x.copy()  # for profiling
         z = []  # inference output
         if self.export_cat:
-            assert False, "code for n landmarks is not ready"
+            # assert False, "code for n landmarks is not ready"
             for i in range(self.nl):
                 x[i] = self.m[i](x[i])  # conv
                 bs, _, ny, nx = x[i].shape  # x(bs,255,20,20) to x(bs,3,20,20,85)
                 x[i] = x[i].view(bs, self.na, self.no, ny, nx).permute(0, 1, 3, 4, 2).contiguous()
 
-                if self.grid[i].shape[2:4] != x[i].shape[2:4]:
+                # if self.grid[i].shape[2:4] != x[i].shape[2:4]:
                     # self.grid[i] = self._make_grid(nx, ny).to(x[i].device)
-                    self.grid[i], self.anchor_grid[i] = self._make_grid_new(nx, ny,i)
+                    # self.grid[i], self.anchor_grid[i] = self._make_grid_new(nx, ny,i)
 
-                y = torch.full_like(x[i], 0)
-                y = y + torch.cat((x[i][:, :, :, :, 0:5].sigmoid(), torch.cat((x[i][:, :, :, :, 5:15], x[i][:, :, :, :, 15:15+self.nc].sigmoid()), 4)), 4)
+                # y = torch.full_like(x[i], 0)
+                # y = y + torch.cat((x[i][:, :, :, :, 0:5].sigmoid(), torch.cat((x[i][:, :, :, :, 5:5+self.nLM*2], x[i][:, :, :, :, 5+self.nLM*2:5+self.nLM*2+self.nc].sigmoid()), 4)), 4)
 
-                box_xy = (y[:, :, :, :, 0:2] * 2. - 0.5 + self.grid[i].to(x[i].device)) * self.stride[i] # xy
-                box_wh = (y[:, :, :, :, 2:4] * 2) ** 2 * self.anchor_grid[i] # wh
+                # box_xy = (y[:, :, :, :, 0:2] * 2. - 0.5 + self.grid[i].to(x[i].device)) * self.stride[i] # xy
+                # box_wh = (y[:, :, :, :, 2:4] * 2) ** 2 * self.anchor_grid[i] # wh
                 # box_conf = torch.cat((box_xy, torch.cat((box_wh, y[:, :, :, :, 4:5]), 4)), 4)
 
-                landm1 = y[:, :, :, :, 5:7] * self.anchor_grid[i] + self.grid[i].to(x[i].device) * self.stride[i]  # landmark x1 y1
-                landm2 = y[:, :, :, :, 7:9] * self.anchor_grid[i] + self.grid[i].to(x[i].device) * self.stride[i]  # landmark x2 y2
-                landm3 = y[:, :, :, :, 9:11] * self.anchor_grid[i] + self.grid[i].to(x[i].device) * self.stride[i]  # landmark x3 y3
-                landm4 = y[:, :, :, :, 11:13] * self.anchor_grid[i] + self.grid[i].to(x[i].device) * self.stride[i]  # landmark x4 y4
-                landm5 = y[:, :, :, :, 13:15] * self.anchor_grid[i] + self.grid[i].to(x[i].device) * self.stride[i]  # landmark x5 y5
+                # landm = y[:, :, :, :, 5:5+self.nLM*2]
+                # for iLM in range(self.nLM):
+                    # landm[:, :, :, :, 2*iLM : 2*iLM + 2] = y[:, :, :, :, 5+2*iLM : 7+2*iLM] * self.anchor_grid[i] + self.grid[i].to(x[i].device) * self.stride[i]  # landmark x1 y1
+                # y = torch.cat([box_xy, box_wh, y[:, :, :, :, 4:5], landm, y[:, :, :, :, 15:15+self.nc]], -1)
+                # landm1 = y[:, :, :, :, 5:7] * self.anchor_grid[i] + self.grid[i].to(x[i].device) * self.stride[i]  # landmark x1 y1
+                # landm2 = y[:, :, :, :, 7:9] * self.anchor_grid[i] + self.grid[i].to(x[i].device) * self.stride[i]  # landmark x2 y2
+                # landm3 = y[:, :, :, :, 9:11] * self.anchor_grid[i] + self.grid[i].to(x[i].device) * self.stride[i]  # landmark x3 y3
+                # landm4 = y[:, :, :, :, 11:13] * self.anchor_grid[i] + self.grid[i].to(x[i].device) * self.stride[i]  # landmark x4 y4
+                # landm5 = y[:, :, :, :, 13:15] * self.anchor_grid[i] + self.grid[i].to(x[i].device) * self.stride[i]  # landmark x5 y5
                 # landm = torch.cat((landm1, torch.cat((landm2, torch.cat((landm3, torch.cat((landm4, landm5), 4)), 4)), 4)), 4)
                 # y = torch.cat((box_conf, torch.cat((landm, y[:, :, :, :, 15:15+self.nc]), 4)), 4)
-                y = torch.cat([box_xy, box_wh, y[:, :, :, :, 4:5], landm1, landm2, landm3, landm4, landm5, y[:, :, :, :, 15:15+self.nc]], -1)
+                # y = torch.cat([box_xy, box_wh, y[:, :, :, :, 4:5], landm1, landm2, landm3, landm4, landm5, y[:, :, :, :, 15:15+self.nc]], -1)
 
-                z.append(y.view(bs, -1, self.no))
+                # z.append(y.view(bs, -1, self.no))
+                z.append(x[i].view(bs, -1, self.no))
             return torch.cat(z, 1)
         
         for i in range(self.nl):
+            # this is the output layer, I'll add very detailed comment UNDER important line, I think it worth it
             x[i] = self.m[i](x[i])  # conv
-            bs, _, ny, nx = x[i].shape  # x(bs,255,20,20) to x(bs,3,20,20,85)
+            bs, _, ny, nx = x[i].shape  # layer 0: shape of x[0] is (bs,48,64,80)
+            # take anchor layer 0 as example(which means i = 0)
+            # the 48 is the 3 different shaped anchor layers' output, each has 16 number.
+            # the 16 number consists of "5lm*2+4bbox+1obj+1cls" # TODO the order is not 
+            # the input image is W = 640, H = 512
+            # so the 64 is 512/8, where the 8 is the FPN ratio in anchors in yolov5n-0.5.yaml (# P3/8)
+            # so the 80 is 640/8, where the 8 is the FPN ratio in anchors in yolov5n-0.5.yaml
             x[i] = x[i].view(bs, self.na, self.no, ny, nx).permute(0, 1, 3, 4, 2).contiguous()
+            # the shape of x[0] is (bs,3,64,80,16)
 
             if not self.training:  # inference
                 if self.grid[i].shape[2:4] != x[i].shape[2:4]:
                     self.grid[i] = self._make_grid(nx, ny).to(x[i].device)
-
+                    # the grid[i] is (bs, 1, 64, 80, 1), a 2D array of [0:64, 0:80], the index of each grid
                 xi = x[i]
                 y = torch.full_like(x[i], 0)
                 class_range = list(range(5)) + list(range(5+2*self.nLM,5+2*self.nLM+self.nc))
+                # class_range = [1,1,1,1,1, 0....0, 1] # bbox, obj, class need a further sigmoid
                 y[..., class_range] = x[i][..., class_range].sigmoid()
-                y[..., 5:5+2*self.nLM] = x[i][..., 5:5+2*self.nLM]
+                y[..., 5:5+2*self.nLM] = x[i][..., 5:5+2*self.nLM] # the landmarks remain same
                 #y = x[i].sigmoid()
 
                 y[..., 0:2] = (y[..., 0:2] * 2. - 0.5 + self.grid[i].to(x[i].device)) * self.stride[i]  # xy
-                y[..., 2:4] = (y[..., 2:4] * 2) ** 2 * self.anchor_grid[i]  # wh # the square is to avoid negative number
+                # self.stride[0] = 8, the ratio of FPN
+                # bbox x,y = (-0.5~1.5 + gridIdx) * 8
+                # 0.5 is the grid center, minus 1 pixel is -0.5, add 1 pixel is 1.5
+                y[..., 2:4] = (y[..., 2:4] * 2) ** 2 * self.anchor_grid[i]  # wh
+                # the square is to avoid negative number
+                # self.anchor_grid.shape = [3,1,3,1,1,2], 
+                # self.anchor_grid.shape[0] = [4,5],[8,10],[13,16] # the [4,5] means the anchor box size on origin input size
 
-                #y[..., 5:15] = y[..., 5:15] * 8 - 4
                 for iLM in range(self.nLM):
                     y[..., 5+2*iLM: 7+2*iLM] = y[..., 5+2*iLM: 7+2*iLM] * self.anchor_grid[i] + self.grid[i].to(x[i].device) * self.stride[i] # landmark x1 y1
+                    # 
                 # y[..., 5:7]   = y[..., 5:7] *   self.anchor_grid[i] + self.grid[i].to(x[i].device) * self.stride[i] # landmark x1 y1
                 # y[..., 7:9]   = y[..., 7:9] *   self.anchor_grid[i] + self.grid[i].to(x[i].device) * self.stride[i] # landmark x2 y2
                 # y[..., 9:11]  = y[..., 9:11] *  self.anchor_grid[i] + self.grid[i].to(x[i].device) * self.stride[i] # landmark x3 y3
