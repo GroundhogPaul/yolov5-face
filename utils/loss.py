@@ -155,6 +155,7 @@ def compute_loss(p, targets, model):  # predictions, targets, model
 
             # Objectness
             tobj[b, a, gj, gi] = (1.0 - model.gr) + model.gr * iou.detach().clamp(0).type(tobj.dtype)  # iou ratio
+            # print(tobj[b, a, gj, gi])
 
             # Classification
             if model.nc > 1:  # cls loss (only if multiple classes)
@@ -202,8 +203,8 @@ def build_targets(p, targets, model):
     det = model.module.model[-1] if is_parallel(model) else model.model[-1]  # Detect() module
     na, nt = det.na, targets.shape[0]  # number of anchors, targets
     tcls, tbox, indices, anch, landmarks, lmks_mask = [], [], [], [], [], []
-    gain = torch.ones(lenLabel+1, device=targets.device)  # normalized to gridspace gain, 1 from ai
     ai = torch.arange(na, device=targets.device).float().view(na, 1).repeat(1, nt)  # same as .repeat_interleave(nt)
+    gain = torch.ones(lenLabel+1, device=targets.device)  # normalized to gridspace gain, 1 from ai (anchor index)
     targets = torch.cat((targets.repeat(na, 1, 1), ai[:, :, None]), 2)  # copy target for na times, append correspongding anchor indices
 
     g = 0.5  # bias
@@ -213,15 +214,16 @@ def build_targets(p, targets, model):
                         ], device=targets.device).float() * g  # offsets
 
     for i in range(det.nl):
-        anchors = det.anchors[i]
-        gain[2:6] = torch.tensor(p[i].shape)[[3, 2, 3, 2]]  # xyxy gain
-        #landmarks 10
-        lmGainIdx = [3,2]*nLM
-        # gain[6:16] = torch.tensor(p[i].shape)[[3, 2, 3, 2, 3, 2, 3, 2, 3, 2]]  # xyxy gain
-        gain[6:6+2*nLM] = torch.tensor(p[i].shape)[lmGainIdx]  # xyxy gain
+        # convert to bbox and landmarks in targets from normalized [0~1.0, 0~1.0] to [0~W, 0~H] 
+        # the W and H are downsampled, means W and H anchor box on corresponding direction
+        gain[2:6] = torch.tensor(p[i].shape)[[3, 2, 3, 2]]  # xyxy gain of bbox
+        # gain[6:16] = torch.tensor(p[i].shape)[[3, 2, 3, 2, 3, 2, 3, 2, 3, 2]]  # xyxy gain of 10 landmarks
+        lmGainIdx = [3,2]*nLM 
+        gain[6:6+2*nLM] = torch.tensor(p[i].shape)[lmGainIdx]  # xyxy gain of LM landmarks
+        t = targets * gain
 
         # Match targets to anchors
-        t = targets * gain
+        anchors = det.anchors[i] # e.g: P3 with 8x downsample, and anchor box [4,5] is correspond to [0.5, 0.625] pixels
         if nt:
             # Matches
             r = t[:, :, 4:6] / anchors[:, None]  # wh ratio
@@ -235,7 +237,11 @@ def build_targets(p, targets, model):
             j, k = ((gxy % 1. < g) & (gxy > 1.)).T
             l, m = ((gxi % 1. < g) & (gxi > 1.)).T
             j = torch.stack((torch.ones_like(j), j, k, l, m))
-            t = t.repeat((5, 1, 1))[j]
+            # print(t.shape)
+            t = t.repeat((5, 1, 1))
+            # print(t.shape)
+            t = t[j]
+            # print(t.shape)
             offsets = (torch.zeros_like(gxy)[None] + off[:, None])[j]
         else:
             t = targets[0]
