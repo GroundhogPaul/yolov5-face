@@ -236,7 +236,10 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
                 'Using %g dataloader workers\nLogging results to %s\n'
                 'Starting training for %g epochs...' % (imgsz, imgsz_test, dataloader.num_workers, save_dir, epochs))
     with open(results_file, 'a') as f:
-        f.write("epoch/epochs, GPUmem, box, obj, cls, lm, lossWeighted, targetNum, imgWidth, P, R, mAP@.5mean, mAP@.5~.95mean, box_val, obj_val, cls_val, lm_val, lossWeighted_val\n")
+        resultDes = ["i/epochs", "GPUmem", "box", "obj", "cls", "lm", "loss", "targetNum", "imgWidth", "P", "R", "mAP@.5", "mAP@5~95", "box_val", "obj_val", "cls_val", "lm_val", "loss_val\n"]
+        sResultDes = ["{:>10}".format(word) for word in resultDes]
+        for word in sResultDes:
+            f.write(word)
     for epoch in range(start_epoch, epochs):  # epoch ------------------------------------------------------------------
         model.train()
 
