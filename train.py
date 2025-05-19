@@ -235,6 +235,8 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
     logger.info('Image sizes %g train, %g test\n'
                 'Using %g dataloader workers\nLogging results to %s\n'
                 'Starting training for %g epochs...' % (imgsz, imgsz_test, dataloader.num_workers, save_dir, epochs))
+    with open(results_file, 'a') as f:
+        f.write("epoch/epochs, GPUmem, box, obj, cls, lm, lossWeighted, targetNum, imgWidth, P, R, mAP@.5mean, mAP@.5~.95mean, box_val, obj_val, cls_val, lm_val, lossWeighted_val\n")
     for epoch in range(start_epoch, epochs):  # epoch ------------------------------------------------------------------
         model.train()
 
@@ -353,7 +355,7 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
 
             # Write
             with open(results_file, 'a') as f:
-                f.write(s + '%10.4g' * 7 % results + '\n')  # P, R, mAP@.5, mAP@.5-.95, val_loss(box, obj, cls)
+                f.write(s + '%10.4g' * 9 % results + '\n')  # P, R, mAP@.5, mAP@.5-.95, val_loss(box, obj, cls)
             if len(opt.name) and opt.bucket:
                 os.system('gsutil cp %s gs://%s/results/results%s.txt' % (results_file, opt.bucket, opt.name))
 
@@ -402,7 +404,7 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
             os.system(f'gsutil cp {final} gs://{opt.bucket}/weights')  # upload
 
         # Plots
-        if plots:
+        if plots and epochs > 10:
             plot_results(save_dir=save_dir)  # save as results.png
             if wandb:
                 files = ['results.png', 'precision_recall_curve.png', 'confusion_matrix.png']

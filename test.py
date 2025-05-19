@@ -95,7 +95,7 @@ def test(data,
     coco91class = coco80_to_coco91_class()
     s = ('%20s' + '%12s' * 6) % ('Class', 'Images', 'Targets', 'P', 'R', 'mAP@.5', 'mAP@.5:.95')
     p, r, f1, mp, mr, map50, map, t0, t1 = 0., 0., 0., 0., 0., 0., 0., 0., 0.
-    loss = torch.zeros(3, device=device)
+    loss = torch.zeros(5, device=device)
     jdict, stats, ap, ap_class, wandb_images = [], [], [], [], []
     for batch_i, (img, targets, paths, shapes) in enumerate(tqdm(dataloader, desc=s)):
         img = img.to(device, non_blocking=True)
@@ -112,7 +112,7 @@ def test(data,
 
             # Compute loss
             if training:
-                loss += compute_loss([x.float() for x in train_out], targets, model)[1][:3]  # box, obj, cls
+                loss += compute_loss([x.float() for x in train_out], targets, model)[1]  # box, obj, cls, lmark, loss
 
             # Run NMS
             targets[:, 2:6] *= torch.Tensor([width, height, width, height]).to(device)  # to pixels
