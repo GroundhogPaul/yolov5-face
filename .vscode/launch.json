@@ -10,8 +10,13 @@
             "request": "launch",
             "program": "${workspaceFolder}/detect_face.py",
             "console": "integratedTerminal",
-            "args": ["--weights", "./weights/Pretrained/yolov5n-0.5-LM5.pt", 
-                "--source", "./runs/AD_640_480.bmp", "--save-img"],
+            "args": [
+                // "--weights", "./weights/Pretrained/best0.5x0.5.pt", 
+                "--weights", "./weights/Pretrained/yolov5n-0.5-face128lm_20250514.pt", 
+                "--source", "./runs/AD_640_480.bmp",
+                // "--source", "./runs/AD_128_96.bmp",
+                "--export_cat", "True",
+                "--save-img"],
             "justMyCode": false
         },
         {
@@ -31,12 +36,12 @@
             "console": "integratedTerminal",
             "args": ["--workers", "0", 
                 "--weights", "weights/pretrained/yolov5n-0.5.nopt", 
+                // "--weights", "weights/pretrained/yolov5n-0.5-face128lm_20250514.pt", 
                 "--cfg", "models/yolov5n-0.5.yaml",
                 "--data", "data/Lapa/lapa8-pose.yaml", 
-                // "--data", "data/coco.yaml", 
                 "--project", "runs/train/Lapa", 
                 "--name", "Lapa",
-                "--epochs", "2"],
+                "--epochs", "25"],
             "justMyCode": false
         },
         {
@@ -45,7 +50,8 @@
             "request": "launch",
             "program": "${workspaceFolder}/export.py",
             "console": "integratedTerminal",
-            "args": ["--weights", "./weights/Pretrained/yolov5n-0.5.pt"],
+            "args": ["--weights", "./weights/Pretrained/best.pt",
+                    "--img_size", "96", "120"],
             "justMyCode": false
         },
         {

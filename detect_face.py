@@ -107,7 +107,8 @@ def detect(
     name,
     exist_ok,
     save_img,
-    view_img
+    view_img, 
+    export_cat 
 ):
     # Load model
     img_size = 640
@@ -163,7 +164,50 @@ def detect(
             imgRGBltd_ChHW = imgRGBltd_ChHW.unsqueeze(0)
 
         # Inference
+        model.model[-1].export_cat = export_cat
         pred = model(imgRGBltd_ChHW)[0]
+
+        if export_cat:
+            conf_thres_inv_sigmoid = np.log(conf_thres / (1 - conf_thres))
+            Hltd, Wltd= imgRGBltd_ChHW.shape[2], imgRGBltd_ChHW.shape[3]
+            nAcLayer = 3 # Ac: Anchor
+            nAcPerLayer = 3
+            lstDetRatio = [8, 16, 32] # detect downsample ratio of each anchor layer
+            boxOffset = 0
+            stride = np.array([8, 16, 32])
+            anchor_grid = np.array([    [[ 4,5 ], [ 8,10], [ 13,16]], 
+                                        [[23,29], [43,55],[73,105]], 
+                                        [[146,217], [231,300], [335,433]]])
+            for iAcLayer in range(nAcLayer):
+                detRatio = lstDetRatio[iAcLayer]
+                assert Hltd % detRatio == 0
+                assert Wltd % detRatio == 0
+                HAcLayerOut, WAcLayerOut = Hltd // detRatio, Wltd // detRatio
+
+                outAcLayer = pred[boxOffset: boxOffset + HAcLayerOut * WAcLayerOut * nAcPerLayer, :]
+                print(outAcLayer.shape)
+
+                nLM = 106
+                nc = 1
+                for iAc in range(nAcPerLayer):
+                    outAcLayerIac = outAcLayer[iAc * HAcLayerOut * WAcLayerOut : (iAc+1) * HAcLayerOut * WAcLayerOut, :] # current Anchor Layer, iAc anchor box
+                    for hthAcBox in range(HAcLayerOut):
+                        for wthAcBox in range(WAcLayerOut):
+                            face = outAcLayerIac[(hthAcBox*WAcLayerOut + wthAcBox), :]
+                            if face[4] < conf_thres_inv_sigmoid:
+                                continue
+                            class_range = list(range(5)) + list(range(5+2*nLM,5+2*nLM+nc))
+                            face[class_range] = face[class_range].sigmoid()
+
+                            face[0:2] = (face[0:2] * 2. - 0.5 + np.array([wthAcBox, hthAcBox])) * stride[iAcLayer]  # xy
+                            face[2:4] = (face[2:4] * 2) ** 2 * anchor_grid[iAcLayer, iAc] # wh
+                        
+                            for iLM in range(nLM):
+                                face[..., 5+2*iLM: 7+2*iLM] = face[..., 5+2*iLM: 7+2*iLM] * anchor_grid[iAcLayer, iAc] + np.array([wthAcBox, hthAcBox]) * stride[iAcLayer] # landmark x1, y1
+                        
+                boxOffset += HAcLayerOut * WAcLayerOut * nAcPerLayer
+                # print(HAcLayerOut, WAcLayerOut)
+            pred = pred[None , :]
         
         # Apply NMS
         pred = non_max_suppression_face(pred, conf_thres, iou_thres, nLM = model.getLandMarkNum())
@@ -238,8 +282,9 @@ if __name__ == '__main__':
     parser.add_argument('--exist-ok', action='store_true', help='existing project/name ok, do not increment')
     parser.add_argument('--save-img', action='store_true', help='save results')
     parser.add_argument('--view-img', action='store_true', help='show results')
+    parser.add_argument('--export_cat', type=bool, default=False, help='the last Layer of NN only cat the output for C++ mode')
     opt = parser.parse_args()
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = load_model(opt.weights, device)
-    detect(model, opt.source, device, opt.project, opt.name, opt.exist_ok, opt.save_img, opt.view_img)
+    detect(model, opt.source, device, opt.project, opt.name, opt.exist_ok, opt.save_img, opt.view_img, opt.export_cat)
