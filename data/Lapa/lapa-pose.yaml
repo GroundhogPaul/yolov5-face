@@ -1,1 +1,17 @@
-##### use the lapa8-pose.yaml under same folder, you only need to changer the dataset path
+# Train/val/test sets as 1) dir: path/to/imgs, 2) file: path/to/imgs.txt, or 3) list: [path/to/imgs1, path/to/imgs2, ..]
+path: ../../DataSet/Lapa-yolo5-face # dataset root dir
+train: ../../DataSet/Lapa-yolo5-face/images/train # train images (relative to 'path') 4 images
+val: ../../DataSet/Lapa-yolo5-face/images/val # val images (relative to 'path') 4 images
+test: # test images (optional)
+
+# Keypoints
+kpt_shape: [106, 2]
+
+# number of classes
+nc: 1
+
+# class names
+names: [ 'person' ]
+
+# Download script/URL (optional)
+# download: https://github.com/ultralytics/assets/releases/download/v0.0.0/coco8-pose.zip
