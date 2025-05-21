@@ -68,11 +68,59 @@ def scale_coords_landmarks(img1_shape, coords, img0_shape, ratio_pad=None):
     # coords[:, 9].clamp_(0, img0_shape[0])  # y5
     return coords
 
+def export_cat_parse(pred: torch.Tensor, H, W, nAcLayer, nAcPerLayer, strides, anchor_grid, conf_thres):
+    assert isinstance(pred, torch.Tensor), "pred must be a torch.Tensor" # to use sigmoid
+    assert len(pred.shape) == 2, "shape of pred should be like (20160, 218) or (20160, 16)"
+    conf_thres_inv_sigmoid = np.log(conf_thres / (1 - conf_thres))
+    boxOffset = 0
+    for iAcLayer in range(nAcLayer):
+        detRatio = strides[iAcLayer]
+        assert H % detRatio == 0
+        assert W % detRatio == 0
+        HAcLayerOut, WAcLayerOut = H // detRatio, W // detRatio
+
+        outAcLayer = pred[boxOffset: boxOffset + HAcLayerOut * WAcLayerOut * nAcPerLayer, :]
+
+        nLM = 106
+        nc = 1
+        for iAc in range(nAcPerLayer):
+            outAcLayerIac = outAcLayer[iAc * HAcLayerOut * WAcLayerOut : (iAc+1) * HAcLayerOut * WAcLayerOut, :] # current Anchor Layer, iAc anchor box
+            for hthAcBox in range(HAcLayerOut):
+                for wthAcBox in range(WAcLayerOut):
+                    face = outAcLayerIac[(hthAcBox*WAcLayerOut + wthAcBox), :]
+                    if face[4] < conf_thres_inv_sigmoid:
+                        continue
+                    # print("nAcLayer:", nAcLayer, ", nAcPerLayer:", nAcPerLayer, ", hthAcBox:", hthAcBox, ", wthAcBox:", wthAcBox)
+                    class_range = list(range(5)) + list(range(5+2*nLM,5+2*nLM+nc))
+                    face[class_range] = face[class_range].sigmoid()
+
+                    face[0:2] = (face[0:2] * 2. - 0.5 + np.array([wthAcBox, hthAcBox])) * strides[iAcLayer]  # xy
+                    face[2:4] = (face[2:4] * 2) ** 2 * anchor_grid[iAcLayer, iAc] # wh
+                        
+                    for iLM in range(nLM):
+                        face[..., 5+2*iLM: 7+2*iLM] = face[..., 5+2*iLM: 7+2*iLM] * anchor_grid[iAcLayer, iAc] + np.array([wthAcBox, hthAcBox]) * strides[iAcLayer] # landmark x1, y1
+                        
+        boxOffset += HAcLayerOut * WAcLayerOut * nAcPerLayer
+        # print(HAcLayerOut, WAcLayerOut)
+    pred = pred[None , :]
+    return pred
+
+def export_cat_parse_detectLayer(pred, H, W, detectLayer: Detect, conf_thres):
+    layerDetect = model.model[-1]
+    nAcLayer = layerDetect.nl
+    nAcPerLayer = layerDetect.na
+    strides = layerDetect.stride.to(torch.int32).numpy()
+    anchor_grid = layerDetect.anchor_grid.numpy().squeeze()
+
+    pred = export_cat_parse(pred, H, W, nAcLayer, nAcPerLayer, strides, anchor_grid, conf_thres)
+    return pred
+
 def show_results(imgIn, imgOut, xyxy, conf, landmarks, class_num, nLM = 5):
     h,w,c = imgIn.shape
     # ----- scale up to 640 ----- # or the image would be too small to observe the landmarks
     rScaleUp = int(max(640 / max(h,w), 1)) # ratio scale up
     h, w = h * rScaleUp, w* rScaleUp
+    rScaleUp = 1
     if rScaleUp == 1 or max(imgOut.shape) == 640:
         pass
     else:
@@ -112,7 +160,7 @@ def detect(
 ):
     # Load model
     img_size = 640
-    conf_thres = 0.6
+    conf_thres = 0.5
     iou_thres = 0.5
     imgsz=(640, 640)
     
@@ -165,49 +213,13 @@ def detect(
 
         # Inference
         model.model[-1].export_cat = export_cat
+        print("Pt: input type: ", type(imgRGBltd_ChHW), ", input shape:", imgRGBltd_ChHW.shape)
         pred = model(imgRGBltd_ChHW)[0]
+        print("Pt: output type: ", type(pred), ", output shape:", pred.shape)
 
         if export_cat:
-            conf_thres_inv_sigmoid = np.log(conf_thres / (1 - conf_thres))
-            Hltd, Wltd= imgRGBltd_ChHW.shape[2], imgRGBltd_ChHW.shape[3]
-            nAcLayer = 3 # Ac: Anchor
-            nAcPerLayer = 3
-            lstDetRatio = [8, 16, 32] # detect downsample ratio of each anchor layer
-            boxOffset = 0
-            stride = np.array([8, 16, 32])
-            anchor_grid = np.array([    [[ 4,5 ], [ 8,10], [ 13,16]], 
-                                        [[23,29], [43,55],[73,105]], 
-                                        [[146,217], [231,300], [335,433]]])
-            for iAcLayer in range(nAcLayer):
-                detRatio = lstDetRatio[iAcLayer]
-                assert Hltd % detRatio == 0
-                assert Wltd % detRatio == 0
-                HAcLayerOut, WAcLayerOut = Hltd // detRatio, Wltd // detRatio
-
-                outAcLayer = pred[boxOffset: boxOffset + HAcLayerOut * WAcLayerOut * nAcPerLayer, :]
-                print(outAcLayer.shape)
-
-                nLM = 106
-                nc = 1
-                for iAc in range(nAcPerLayer):
-                    outAcLayerIac = outAcLayer[iAc * HAcLayerOut * WAcLayerOut : (iAc+1) * HAcLayerOut * WAcLayerOut, :] # current Anchor Layer, iAc anchor box
-                    for hthAcBox in range(HAcLayerOut):
-                        for wthAcBox in range(WAcLayerOut):
-                            face = outAcLayerIac[(hthAcBox*WAcLayerOut + wthAcBox), :]
-                            if face[4] < conf_thres_inv_sigmoid:
-                                continue
-                            class_range = list(range(5)) + list(range(5+2*nLM,5+2*nLM+nc))
-                            face[class_range] = face[class_range].sigmoid()
-
-                            face[0:2] = (face[0:2] * 2. - 0.5 + np.array([wthAcBox, hthAcBox])) * stride[iAcLayer]  # xy
-                            face[2:4] = (face[2:4] * 2) ** 2 * anchor_grid[iAcLayer, iAc] # wh
-                        
-                            for iLM in range(nLM):
-                                face[..., 5+2*iLM: 7+2*iLM] = face[..., 5+2*iLM: 7+2*iLM] * anchor_grid[iAcLayer, iAc] + np.array([wthAcBox, hthAcBox]) * stride[iAcLayer] # landmark x1, y1
-                        
-                boxOffset += HAcLayerOut * WAcLayerOut * nAcPerLayer
-                # print(HAcLayerOut, WAcLayerOut)
-            pred = pred[None , :]
+            layerDetect = model.model[-1]
+            pred = export_cat_parse_detectLayer(pred, imgRGBltd_ChHW.shape[2], imgRGBltd_ChHW.shape[3], layerDetect, conf_thres)
         
         # Apply NMS
         pred = non_max_suppression_face(pred, conf_thres, iou_thres, nLM = model.getLandMarkNum())
