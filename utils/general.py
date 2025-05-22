@@ -203,13 +203,22 @@ def coco80_to_coco91_class():  # converts 80-index (val2014) to 91-index (paper)
     return x
 
 
-def xyxy2xywh(x):
+def xyxy2xywh(x): # output x center and y center
     # Convert nx4 boxes from [x1, y1, x2, y2] to [x, y, w, h] where xy1=top-left, xy2=bottom-right
+    assert len(x.shape) == 1 or len(x.shape) == 2
+    if len(x.shape) == 1:
+        y = x.clone() if isinstance(x, torch.Tensor) else np.copy(x)
+        y[0] = (x[0] + x[2]) / 2  # x center
+        y[1] = (x[1] + x[3]) / 2  # y center
+        y[2] = x[2] - x[0]  # width
+        y[3] = x[3] - x[1]  # height
+        return y
+
     y = x.clone() if isinstance(x, torch.Tensor) else np.copy(x)
-    y[:, 0] = (x[:, 0] + x[:, 2]) / 2  # x center
-    y[:, 1] = (x[:, 1] + x[:, 3]) / 2  # y center
-    y[:, 2] = x[:, 2] - x[:, 0]  # width
-    y[:, 3] = x[:, 3] - x[:, 1]  # height
+    y[:, 0] = (x[:, 0] + x[:, 2]) / 2
+    y[:, 1] = (x[:, 1] + x[:, 3]) / 2
+    y[:, 2] = x[:, 2] - x[:, 0] 
+    y[:, 3] = x[:, 3] - x[:, 1]
     return y
 
 
