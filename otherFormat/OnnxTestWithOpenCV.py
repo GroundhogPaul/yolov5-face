@@ -14,7 +14,7 @@ parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 
 from detect_face import show_results, export_cat_parse, non_max_suppression_face
-from utils.general import xywh2xyxy
+from utils.general import xywh2xyxy, xyxy2xywh
 
 WinNN, HinNN = 640, 512
 imgInBGR = cv2.imread("./runs/AD_640_480.bmp")
@@ -77,20 +77,25 @@ output = output[output[:,4] > 0.5] # obj > thre
 # ----- NMS -----
 nLM = 106
 output = output[None, :]
-output = non_max_suppression_face(output, nLM = nLM)
-output = output[0]
+output = non_max_suppression_face(output, nLM = nLM) # NMS do the xywh(center xy) to xyxy(upleft xy) thing
 
+# ----- print the normalized index , test code ----- //
+# face0 = copy.deepcopy(output[0])
+# face0[:4] = xyxy2xywh(face0[:4])
+# face0[[0,2]] = face0[[0,2]] / WinNN 
+# face0[[1,3]] = face0[[1,3]] / HinNN 
+# for i in range(106):
+#     face0[5+2*i] = face0[5+2*i] / WinNN
+#     face0[6+2*i] = face0[6+2*i] / HinNN
+# print(face0)
+
+# ----- plot face ----- #
 imgOutBGR_pad = copy.deepcopy(imgInBGR_pad) 
 for face in output:
-    xywh = face[:4].tolist()
-    # xyxy = np.copy(xywh)
-    # xywh[0] = xyxy[0] - xyxy[2] / 2  # top left x
-    # xywh[1] = xyxy[1] - xyxy[3] / 2  # top left y
-    # xywh[2] = xyxy[0] + xyxy[2] / 2  # bottom right x
-    # xywh[3] = xyxy[1] + xyxy[3] / 2  # bottom right y
+    xyxy = face[:4].tolist()
     conf = face[4].item()
     landmarks = face[5:5+nLM*2].tolist()
     class_num = face[5+nLM*2]
 
-    imgPlot = show_results(imgInBGR_pad, imgOutBGR_pad, xywh, conf, landmarks, class_num, nLM = nLM)
+    imgPlot = show_results(imgInBGR_pad, imgOutBGR_pad, xyxy, conf, landmarks, class_num, nLM = nLM)
 cv2.imwrite("testONNX.jpg", imgPlot)
