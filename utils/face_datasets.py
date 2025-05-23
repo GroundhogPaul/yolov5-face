@@ -168,8 +168,8 @@ class LoadFaceImagesAndLabels(Dataset):  # for training/testing
 # ---------------------------- TODO: take this code block (cache) out: end ------------------------------ #
 
         # Read cache
-        cache.pop('hash')  # remove hash
-        # TODO add check len(cache) = 2
+        cache.pop('hash')  # remove hash, what left is 'key: img path', 'value: [label, shape(original train img shape)]'
+        assert cache, "cache is empty"
         labels, shapes = zip(*cache.values())
         self.labels = list(labels)
         self.shapes = np.array(shapes, dtype=np.float64)
@@ -344,9 +344,7 @@ class LoadFaceImagesAndLabels(Dataset):  # for training/testing
                 # labels[:, 14] = np.array(x[:, 14] > 0, dtype=np.int32) * (ratio[1] * h * x[:, 14] + pad[1]) + (
                 #     np.array(x[:, 14] > 0, dtype=np.int32) - 1)
 
-        self.augment = False # TODO recover this choice
         if self.augment:
-            assert false, "not ready for 106 landmark"
             # Augment imagespace
             if not mosaic:
                 img, labels = random_perspective(img, labels,
@@ -381,11 +379,10 @@ class LoadFaceImagesAndLabels(Dataset):  # for training/testing
             labels[:, lstLMy] /= img.shape[0]  # normalized landmark y 0-1
             labels[:, lstLMy] = np.where(labels[:, lstLMy] < 0, -1, labels[:, lstLMy])
 
-        self.augment = False # TODO recover this choice
         if self.augment:
-            assert false, "not ready for 106 landmark"
             # flip up-down
             if random.random() < hyp['flipud']:
+                assert false, "not ready for 106 landmark"
                 img = np.flipud(img)
                 if nL:
                     labels[:, 2] = 1 - labels[:, 2]
@@ -398,6 +395,7 @@ class LoadFaceImagesAndLabels(Dataset):  # for training/testing
 
             # flip left-right
             if random.random() < hyp['fliplr']:
+                assert False, "not ready for 106 landmark"
                 img = np.fliplr(img)
                 if nL:
                     labels[:, 1] = 1 - labels[:, 1]
@@ -627,6 +625,7 @@ def letterbox(img, new_shape=(640, 640), color=(114, 114, 114), auto=True, scale
 
 
 def random_perspective(img, targets=(), degrees=10, translate=.1, scale=.1, shear=10, perspective=0.0, border=(0, 0)):
+    nLM = 106 # TODO Lapa Magic
     # torchvision.transforms.RandomAffine(degrees=(-10, 10), translate=(.1, .1), scale=(.9, 1.1), shear=(-10, 10))
     # targets = [cls, xyxy]
 
@@ -679,44 +678,55 @@ def random_perspective(img, targets=(), degrees=10, translate=.1, scale=.1, shea
     n = len(targets)
     if n:
         # warp points
-        #xy = np.ones((n * 4, 3))
-        xy = np.ones((n * 9, 3))
-        xy[:, :2] = targets[:, [1, 2, 3, 4, 1, 4, 3, 2, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]].reshape(n * 9, 2)  # x1y1, x2y2, x1y2, x2y1
+        nKP = nLM + 4 # num of key point = number of landmark + 4 corners of bbox 
+        # xy = np.ones((n * 9, 3))
+        xy = np.ones((n * nKP, 3))
+        lstKPidx = [1,2,3,4, 1,4,3,2] # x1y1, x2y2, x1y2, x2y1
+        lstKPidx = lstKPidx + [LMidx for LMidx in range(5, 5+2*nLM)]
+        xy[:, :2] = targets[:, lstKPidx].reshape(n * nKP, 2)  # x1y1, x2y2, x1y2, x2y1
+        # xy[:, :2] = targets[:, [1, 2, 3, 4, 1, 4, 3, 2, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]].reshape(n * 9, 2)  # x1y1, x2y2, x1y2, x2y1
         xy = xy @ M.T  # transform
         if perspective:
-            xy = (xy[:, :2] / xy[:, 2:3]).reshape(n, 18)  # rescale
+            xy = (xy[:, :2] / xy[:, 2:3]).reshape(n, 2*nKP)  # rescale
         else:  # affine
-            xy = xy[:, :2].reshape(n, 18)
+            xy = xy[:, :2].reshape(n, 2*nKP)
 
         # create new boxes
         x = xy[:, [0, 2, 4, 6]]
         y = xy[:, [1, 3, 5, 7]]
 
-        landmarks = xy[:, [8, 9, 10, 11, 12, 13, 14, 15, 16, 17]]
-        mask = np.array(targets[:, 5:] > 0, dtype=np.int32)
+        # ----- if kp exceed one side, set to -1 ----- #
+        # landmarks = xy[:, [8, 9, 10, 11, 12, 13, 14, 15, 16, 17]]
+        # mask = np.array(targets[:, 5:] > 0, dtype=np.int32)
+        landmarks = xy[:, [LMidx for LMidx in range(8, 8 + 2*nLM)]]
+        mask = np.array(targets[:, 5:-1] > 0, dtype=np.int32) # in Lapa, the last label is objectness
         landmarks = landmarks * mask
         landmarks = landmarks + mask - 1
 
         landmarks = np.where(landmarks < 0, -1, landmarks)
-        landmarks[:, [0, 2, 4, 6, 8]] = np.where(landmarks[:, [0, 2, 4, 6, 8]] > width, -1, landmarks[:, [0, 2, 4, 6, 8]])
-        landmarks[:, [1, 3, 5, 7, 9]] = np.where(landmarks[:, [1, 3, 5, 7, 9]] > height, -1,landmarks[:, [1, 3, 5, 7, 9]])
+        idxLMeven = [z for z in range(0, 2*nLM, 2)]
+        idxLModd = [z for z in range(1, 2*nLM, 2)]
+        landmarks[:, idxLMeven] = np.where(landmarks[:, idxLMeven] > width, -1, landmarks[:, idxLMeven])
+        landmarks[:, idxLModd] = np.where(landmarks[:, idxLModd] > height, -1,landmarks[:, idxLModd])
 
-        landmarks[:, 0] = np.where(landmarks[:, 1] == -1, -1, landmarks[:, 0])
-        landmarks[:, 1] = np.where(landmarks[:, 0] == -1, -1, landmarks[:, 1])
+        landmarks[:, idxLMeven] = np.where(landmarks[:, idxLModd] == -1, -1, landmarks[:, idxLMeven])
+        landmarks[:, idxLModd] = np.where(landmarks[:, idxLMeven] == -1, -1, landmarks[:, idxLModd])
+        # landmarks[:, 0] = np.where(landmarks[:, 1] == -1, -1, landmarks[:, 0])
+        # landmarks[:, 1] = np.where(landmarks[:, 0] == -1, -1, landmarks[:, 1])
 
-        landmarks[:, 2] = np.where(landmarks[:, 3] == -1, -1, landmarks[:, 2])
-        landmarks[:, 3] = np.where(landmarks[:, 2] == -1, -1, landmarks[:, 3])
+        # landmarks[:, 2] = np.where(landmarks[:, 3] == -1, -1, landmarks[:, 2])
+        # landmarks[:, 3] = np.where(landmarks[:, 2] == -1, -1, landmarks[:, 3])
 
-        landmarks[:, 4] = np.where(landmarks[:, 5] == -1, -1, landmarks[:, 4])
-        landmarks[:, 5] = np.where(landmarks[:, 4] == -1, -1, landmarks[:, 5])
+        # landmarks[:, 4] = np.where(landmarks[:, 5] == -1, -1, landmarks[:, 4])
+        # landmarks[:, 5] = np.where(landmarks[:, 4] == -1, -1, landmarks[:, 5])
 
-        landmarks[:, 6] = np.where(landmarks[:, 7] == -1, -1, landmarks[:, 6])
-        landmarks[:, 7] = np.where(landmarks[:, 6] == -1, -1, landmarks[:, 7])
+        # landmarks[:, 6] = np.where(landmarks[:, 7] == -1, -1, landmarks[:, 6])
+        # landmarks[:, 7] = np.where(landmarks[:, 6] == -1, -1, landmarks[:, 7])
 
-        landmarks[:, 8] = np.where(landmarks[:, 9] == -1, -1, landmarks[:, 8])
-        landmarks[:, 9] = np.where(landmarks[:, 8] == -1, -1, landmarks[:, 9])
+        # landmarks[:, 8] = np.where(landmarks[:, 9] == -1, -1, landmarks[:, 8])
+        # landmarks[:, 9] = np.where(landmarks[:, 8] == -1, -1, landmarks[:, 9])
 
-        targets[:,5:] = landmarks
+        targets[:,5:-1] = landmarks
 
         xy = np.concatenate((x.min(1), y.min(1), x.max(1), y.max(1))).reshape(4, n).T
 
