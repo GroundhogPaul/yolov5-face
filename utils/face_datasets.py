@@ -296,7 +296,7 @@ class LoadFaceImagesAndLabels(Dataset):  # for training/testing
                 labels = np.concatenate((labels, labels2), 0)
 
         else:
-            # Load image: "reshape" is in the load_image()
+            # Load image: "resize (without reshape)" is in the load_image()
             img, (h0, w0), (h, w) = load_image(self, index)  # 
 
             # Letterbox: (only do the "padding") 
