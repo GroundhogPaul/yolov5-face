@@ -161,9 +161,6 @@ def plot_images(images, targets, paths=None, fname='images.jpg', names=None, max
                     boxes[[1, 3]] *= h
                 elif scale_factor < 1:  # absolute coords need scale if image scales
                     boxes *= scale_factor
-                else:
-                    print("!!!!! invalid boxes = ", boxes)
-                    assert False
             boxes[[0, 2]] += block_x
             boxes[[1, 3]] += block_y
             for j, box in enumerate(boxes.T):
