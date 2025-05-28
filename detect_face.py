@@ -56,16 +56,6 @@ def scale_coords_landmarks(img1_shape, coords, img0_shape, ratio_pad=None):
         coords[:, i].clamp_(0, img0_shape[1])  # x1
         coords[:, i+1].clamp_(0, img0_shape[0])  # y1
 
-    # coords[:, 0].clamp_(0, img0_shape[1])  # x1
-    # coords[:, 1].clamp_(0, img0_shape[0])  # y1
-    # coords[:, 2].clamp_(0, img0_shape[1])  # x2
-    # coords[:, 3].clamp_(0, img0_shape[0])  # y2
-    # coords[:, 4].clamp_(0, img0_shape[1])  # x3
-    # coords[:, 5].clamp_(0, img0_shape[0])  # y3
-    # coords[:, 6].clamp_(0, img0_shape[1])  # x4
-    # coords[:, 7].clamp_(0, img0_shape[0])  # y4
-    # coords[:, 8].clamp_(0, img0_shape[1])  # x5
-    # coords[:, 9].clamp_(0, img0_shape[0])  # y5
     return coords
 
 def export_cat_parse(pred: torch.Tensor, H, W, nAcLayer, nAcPerLayer, strides, anchor_grid, conf_thres):
@@ -156,13 +146,12 @@ def detect(
     exist_ok,
     save_img,
     view_img, 
-    export_cat 
+    export_cat,
+    img_size
 ):
     # Load model
-    img_size = 640
     conf_thres = 0.5
     iou_thres = 0.5
-    imgsz=(640, 640)
     
     # Directories
     save_dir = increment_path(Path(project) / name, exist_ok=exist_ok)  # increment run
@@ -175,11 +164,11 @@ def detect(
     # Dataloader
     if webcam:
         print('loading streams:', source)
-        dataset = LoadStreams(source, img_size=imgsz)
+        dataset = LoadStreams(source, img_size=img_size)
         bs = 1  # batch_size
     else:
         print('loading images', source)
-        dataset = LoadImages(source, img_size=imgsz)
+        dataset = LoadImages(source, img_size=img_size)
         bs = 1  # batch_size
     vid_path, vid_writer = [None] * bs, [None] * bs
     
@@ -191,16 +180,11 @@ def detect(
             imgRGBltd_HWCh = imgRGBltd_ChHW.transpose(1, 2, 0)
         h0, w0 = imgRGBltd_HWCh.shape[:2]  # orig hw
         
-        # img0BGR = copy.deepcopy(imBGRltd_HWCh)
-        # r = img_size / max(h0, w0)  # resize image to img_size
-        # if r != 1:  # always resize down, only resize up if training with augmentation
-        #     interp = cv2.INTER_AREA if r < 1  else cv2.INTER_LINEAR
-        #     img0BGR = cv2.resize(imgBGRltd_HWCh, (int(w0 * r), int(h0 * r)), interpolation=interp)
-
         imgsz = check_img_size(img_size, s=model.stride.max())  # check img_size
 
         imgRGBltd_HWCh = letterbox(imgRGBltd_HWCh, new_shape=imgsz)[0]
-        # cv2.imshow("", imgBGR)
+        print("image input to NN has size = ", imgRGBltd_HWCh.shape)
+        # cv2.imshow("", imgRGBltd_HWCh)
         # cv2.waitKey(0)
         # Convert from w,h,c to c,w,h
         imgRGBltd_ChHW = imgRGBltd_HWCh.transpose(2, 0, 1).copy()
@@ -288,7 +272,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--weights', nargs='+', type=str, default='runs/train/exp5/weights/last.pt', help='model.pt path(s)')
     parser.add_argument('--source', type=str, default='0', help='source')  # file/folder, 0 for webcam
-    parser.add_argument('--img-size', type=int, default=640, help='inference size (pixels)')
+    parser.add_argument('--img_size', nargs='+', type=int, default=[640, 640], help='image size')  # height, width
     parser.add_argument('--project', default=ROOT / 'runs/detect', help='save results to project/name')
     parser.add_argument('--name', default='exp', help='save results to project/name')
     parser.add_argument('--exist-ok', action='store_true', help='existing project/name ok, do not increment')
@@ -299,4 +283,4 @@ if __name__ == '__main__':
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = load_model(opt.weights, device)
-    detect(model, opt.source, device, opt.project, opt.name, opt.exist_ok, opt.save_img, opt.view_img, opt.export_cat)
+    detect(model, opt.source, device, opt.project, opt.name, opt.exist_ok, opt.save_img, opt.view_img, opt.export_cat, opt.img_size)

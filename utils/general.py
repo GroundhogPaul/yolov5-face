@@ -8,6 +8,7 @@ import random
 import re
 import subprocess
 import time
+import copy
 from pathlib import Path
 
 import cv2
@@ -86,10 +87,12 @@ def check_requirements(file='requirements.txt'):
 
 
 def check_img_size(img_size, s=32):
-    # Verify img_size is a multiple of stride s
-    new_size = make_divisible(img_size, int(s))  # ceil gs-multiple
+    new_size = copy.deepcopy(img_size)
+    for i, x in enumerate(img_size):
+        # Verify img_size is a multiple of stride s
+        new_size[i] = make_divisible(x, int(s))  # ceil gs-multiple
     if new_size != img_size:
-        print('WARNING: --img-size %g must be multiple of max stride %g, updating to %g' % (img_size, s, new_size))
+        print("WARNING: --img-size", img_size, " must be multiple of max stride ", s, ",  updating to ", new_size)
     return new_size
 
 

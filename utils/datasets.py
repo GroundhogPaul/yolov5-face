@@ -782,7 +782,7 @@ def replicate(img, labels):
 def letterbox(img, new_shape=(640, 640), color=(114, 114, 114), auto=True, scaleFill=False, scaleup=True):
     # Resize image to a 32-pixel-multiple rectangle https://github.com/ultralytics/yolov3/issues/232
     # auto: strip redundant 64 (TODO: why not 32) pixel for padded witdh and height
-    # scaleFill: False: pad the input image to new_shape(H, W)  ;True: stretch the input image to new_shape
+    # scaleFill: False: pad the input image to new_shape(H, W)  ; True: stretch the input image to new_shape
     # scaleup: True: don't scale up the input image even if new_shape is bigger along both H and W 
     shape = img.shape[:2]  # current shape [height, width]
     if isinstance(new_shape, int):
