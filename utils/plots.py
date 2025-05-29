@@ -186,9 +186,6 @@ def plot_images(images, targets, paths=None, fname='images.jpg', names=None, max
                         LMs[[2*iLM+1]] *= h
                 elif scale_factor < 1:  # absolute coords need scale if image scales
                     LMs *= scale_factor
-                else:
-                    print("!!!!! invalid LMs = ", LMs)
-                    assert False
             for iLM in range(0, nLM):
                 LMs[[2*iLM]] += block_x
                 LMs[[2*iLM+1]] += block_y
