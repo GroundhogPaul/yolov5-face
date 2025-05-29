@@ -206,6 +206,7 @@ def detect(
             pred = export_cat_parse_detectLayer(pred, imgRGBltd_ChHW.shape[2], imgRGBltd_ChHW.shape[3], layerDetect, conf_thres)
         
         # Apply NMS
+        conf_thres = 0.01
         pred = non_max_suppression_face(pred, conf_thres, iou_thres, nLM = model.getLandMarkNum())
         print(len(pred[0]), 'face' if len(pred[0]) == 1 else 'faces')
 
@@ -247,7 +248,7 @@ def detect(
             # Save results (image with detections)
             if save_img:
                 if dataset.mode == 'image':
-                    save_path = "./detect_face_out.jpg"
+                    save_path = "./detFaceOut.jpg"
                     cv2.imwrite(save_path, imPlot)
                     print(os.path.basename(__file__), ": save output image to ", save_path)
                 else:  # 'video' or 'stream'
