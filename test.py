@@ -7,6 +7,7 @@ from threading import Thread
 import numpy as np
 import torch
 import yaml
+import cv2
 from tqdm import tqdm
 
 from models.experimental import attempt_load
@@ -98,6 +99,7 @@ def test(data,
     loss = torch.zeros(5, device=device)
     jdict, stats, ap, ap_class, wandb_images = [], [], [], [], []
     for batch_i, (img, targets, paths, shapes) in enumerate(tqdm(dataloader, desc=s)):
+        print("\nbatch_i = ", batch_i, "\n")  # debug"
         img = img.to(device, non_blocking=True)
         img = img.half() if half else img.float()  # uint8 to fp16/32
         img /= 255.0  # 0 - 255 to 0.0 - 1.0
@@ -118,7 +120,6 @@ def test(data,
             targets[:, 2:6] *= torch.Tensor([width, height, width, height]).to(device)  # to pixels
             lb = [targets[targets[:, 0] == i, 1:] for i in range(nb)] if save_hybrid else []  # for autolabelling
             t = time_synchronized()
-            #output = non_max_suppression(inf_out, conf_thres=conf_thres, iou_thres=iou_thres, labels=lb)
             output = non_max_suppression_face(inf_out, conf_thres=conf_thres, iou_thres=iou_thres, labels=lb, nLM = model.getLandMarkNum())
             t1 += time_synchronized() - t
 
@@ -214,10 +215,12 @@ def test(data,
         # Plot images
         if plots and batch_i < 3:
             f = save_dir / f'test_batch{batch_i}_labels.jpg'  # labels
-            plot_images(img, targets, paths=paths, fname=f, names = names, nLM = nLM)
+            imgLabelPlot = plot_images(img, targets, paths=paths, fname=f, names = names, nLM = nLM)
+            # cv2.imshow("", imgLabelPlot)
             f = save_dir / f'test_batch{batch_i}_pred.jpg'  # predictions
-            plot_images(img, output_to_target(output), paths=paths, fname=f, names = names, nLM = nLM)
-            # Thread(target=plot_images, args=(img, output_to_target(output), paths, f, names), daemon=True).start()
+            imgPredPlot= plot_images(img, output_to_target(output), paths=paths, fname=f, names = names, nLM = nLM)
+            # cv2.imshow("", imgPredPlot)
+            # cv2.waitKey(0)
 
     # Compute statistics
     stats = [np.concatenate(x, 0) for x in zip(*stats)]  # to numpy

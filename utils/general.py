@@ -87,6 +87,10 @@ def check_requirements(file='requirements.txt'):
 
 
 def check_img_size(img_size, s=32):
+    if not isinstance(img_size, list):
+        new_size = make_divisible(img_size, int(s))
+        return new_size
+
     new_size = copy.deepcopy(img_size)
     for i, x in enumerate(img_size):
         # Verify img_size is a multiple of stride s
@@ -403,13 +407,13 @@ def non_max_suppression_face(prediction, conf_thres=0.25, iou_thres=0.45, classe
     Returns:
         detections with shape: nx6 (x1, y1, x2, y2, conf, cls)
     """
-    outputExceptNC = 1 + 4 + nLM * 2 # 1: object; 4: bbox; nLM*2; what left is the NC: number of class
+    outputExceptNC = 4 + 1 + nLM * 2 # 1: object; 4: bbox; nLM*2; what left is the NC: number of class
     nc = prediction.shape[2] - outputExceptNC  # number of classes
     xc = prediction[..., 4] > conf_thres  # candidates
 
     # Settings
     min_wh, max_wh = 2, 4096  # (pixels) minimum and maximum box width and height, to offset the bbox of different class, so they won't NMS each other
-    time_limit = 30.0  # seconds to quit after
+    time_limit = 60.0  # seconds to quit after
     redundant = True  # require redundant detections, selected bbox must have at least 1 other box IoU > threshold
     multi_label = nc > 1  # multiple labels per box (adds 0.5ms/img)
     merge = False  # use merge-NMS using weighted mean to alleviate shake of BBox (if set true, could support hybrid label)

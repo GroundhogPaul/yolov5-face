@@ -558,7 +558,8 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
                 if nL:
                     labels[:, 1] = 1 - labels[:, 1]
 
-        labels_out = torch.zeros((nL, 6))
+        # labels_out = torch.zeros((nL, 6))
+        labels_out = torch.zeros((nL, 218+1)) # TODO magic number, Lapa
         if nL:
             labels_out[:, 1:] = torch.from_numpy(labels)
 

@@ -151,7 +151,7 @@ def detect(
 ):
     # Load model
     conf_thres = 0.5
-    iou_thres = 0.5
+    iou_thres = 0.25
     
     # Directories
     save_dir = increment_path(Path(project) / name, exist_ok=exist_ok)  # increment run
