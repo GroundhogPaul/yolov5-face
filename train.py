@@ -85,7 +85,7 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
         ckpt = torch.load(weights, map_location=device)  # load checkpoint
         if hyp.get('anchors'):
             ckpt['model'].yaml['anchors'] = round(hyp['anchors'])  # force autoanchor
-        model = Model(opt.cfg or ckpt['model'].yaml, ch=3, nc=nc).to(device)  # create
+        model = Model(opt.cfg or ckpt['model'].yaml, ch=3, nc=nc, nLM = nLM).to(device)  # create
         exclude = ['anchor'] if opt.cfg or hyp.get('anchors') else []  # exclude keys
         state_dict = ckpt['model'].float().state_dict()  # to FP32
         state_dict = intersect_dicts(state_dict, model.state_dict(), exclude=exclude)  # intersect
@@ -433,7 +433,7 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
                                           plots=False)
         else:
             # for conf, iou, save_json in ([0.25, 0.45, False], [0.001, 0.65, True]):  # speed, mAP tests
-            conf, iou, save_json = 0.25, 0.45, False  # speed, mAP tests
+            conf, iou, save_json = 0.5, 0.25, False  # speed, mAP tests
             results, maps, times = test.test(opt.data,
                                         batch_size=total_batch_size,
                                         imgsz=imgsz_test,
