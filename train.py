@@ -340,11 +340,17 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
 
         # DDP process 0 or single-GPU
         if rank in [-1, 0] and epoch > 20:
-        # if rank in [-1, 0] and epoch > 0: ############# for test
             # mAP
             if ema:
                 ema.update_attr(model, include=['yaml', 'nc', 'hyp', 'gr', 'names', 'stride', 'class_weights'])
             final_epoch = epoch + 1 == epochs
+            test_save_dir_Epoch = None
+            bPlotTest = False
+            if epoch % 5 == 0:
+                bPlotTest = True
+                test_save_dir_Epoch = save_dir / f'testEpoch{epoch:03d}'
+                test_save_dir_Epoch.mkdir(parents=True, exist_ok=True)  # make dir
+
             if not opt.notest or final_epoch:  # Calculate mAP
                 results, maps, times = test.test(opt.data,
                                                  batch_size=total_batch_size,
@@ -352,8 +358,8 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
                                                  model=ema.ema,
                                                  single_cls=opt.single_cls,
                                                  dataloader=testloader,
-                                                 save_dir=save_dir,
-                                                 plots=False,
+                                                 save_dir=test_save_dir_Epoch,
+                                                 plots=bPlotTest,
                                                  log_imgs=opt.log_imgs if wandb else 0)
 
             # Write
