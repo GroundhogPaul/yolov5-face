@@ -64,10 +64,10 @@ def export_cat_parse(pred: torch.Tensor, H, W, nAcLayer, nAcPerLayer, strides, a
     conf_thres_inv_sigmoid = np.log(conf_thres / (1 - conf_thres))
     boxOffset = 0
     for iAcLayer in range(nAcLayer):
-        detRatio = strides[iAcLayer]
-        assert H % detRatio == 0
-        assert W % detRatio == 0
-        HAcLayerOut, WAcLayerOut = H // detRatio, W // detRatio
+        strdCurLayer = strides[iAcLayer] # strd: stride
+        assert H % strdCurLayer == 0
+        assert W % strdCurLayer == 0
+        HAcLayerOut, WAcLayerOut = H // strdCurLayer, W // strdCurLayer
 
         outAcLayer = pred[boxOffset: boxOffset + HAcLayerOut * WAcLayerOut * nAcPerLayer, :]
 
@@ -78,17 +78,19 @@ def export_cat_parse(pred: torch.Tensor, H, W, nAcLayer, nAcPerLayer, strides, a
             for hthAcBox in range(HAcLayerOut):
                 for wthAcBox in range(WAcLayerOut):
                     face = outAcLayerIac[(hthAcBox*WAcLayerOut + wthAcBox), :]
-                    # print(f"L:{nAcLayer}, Ac:{nAcPerLayer}, h:{hthAcBox}, w:{wthAcBox}, ", "{:.2f}, {:.2f}, {:.2f}, {:.2f}, {:.2f}".format(face[0], face[1], face[2], face[3], face[4]))
                     if face[4] < conf_thres_inv_sigmoid:
                         continue
+                    # print(f"L:{nAcLayer}, Ac:{nAcPerLayer}, h:{hthAcBox}, w:{wthAcBox}, ", "{:.2f}, {:.2f}, {:.2f}, {:.2f}, {:.2f}".format(face[0], face[1], face[2], face[3], face[4]))
                     class_range = list(range(5)) + list(range(5+2*nLM,5+2*nLM+nc))
                     face[class_range] = face[class_range].sigmoid()
 
                     face[0:2] = (face[0:2] * 2. - 0.5 + np.array([wthAcBox, hthAcBox])) * strides[iAcLayer]  # xy
                     face[2:4] = (face[2:4] * 2) ** 2 * anchor_grid[iAcLayer, iAc] # wh
+                    # print(f"L:{nAcLayer}, Ac:{nAcPerLayer}, h:{hthAcBox}, w:{wthAcBox}, ", "{:.2f}, {:.2f}, {:.2f}, {:.2f}, {:.2f}".format(face[0], face[1], face[2], face[3], face[4]))
 
                     for iLM in range(nLM):
                         face[..., 5+2*iLM: 7+2*iLM] = face[..., 5+2*iLM: 7+2*iLM] * anchor_grid[iAcLayer, iAc] + np.array([wthAcBox, hthAcBox]) * strides[iAcLayer] # landmark x1, y1
+                    # print(f"L:{nAcLayer}, Ac:{nAcPerLayer}, h:{hthAcBox}, w:{wthAcBox}, ", "{:.2f}, {:.2f}, {:.2f}, {:.2f}, {:.2f}".format(face[5], face[6], face[-3], face[-2], face[-1]))
                         
         boxOffset += HAcLayerOut * WAcLayerOut * nAcPerLayer
         # print(HAcLayerOut, WAcLayerOut)
